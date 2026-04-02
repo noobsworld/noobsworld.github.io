@@ -85,7 +85,7 @@ Use box-drawing style section dividers:
 
 ## Key Patterns
 
-### Spinner Types (8 generators)
+### Spinner Types (13 generators)
 `SPINNER_TYPES` array defines configs. Each has: `name`, `emoji`, `desc`, material configs, `arms` count, `floor` (light/dark), `chord` (audio freq).
 `GENERATORS` array maps to creation functions:
 - **Classic** — 3 tapered arms, spherical weights, chrome blue
@@ -96,6 +96,11 @@ Use box-drawing style section dividers:
 - **Kong** — ring spinner with 6 holes, red + orange
 - **Infinity** — two figure-8 tube loops, chrome grey + cobalt
 - **Valkyrie** — 3 stealth angular arms, octahedron weights, black + blue
+- **Ninja Star** — 4 sharp pointed shuriken, gunmetal + red tips
+- **Double Deck** — two stacked tiers offset by 60°, purple + gold
+- **Compass** — 4 cardinal direction points, antique gold + red needle
+- **Gear** — mechanical gear with 16 outer teeth + 10 inner teeth, steel + gold
+- **Skull** — skull hub with glowing red eyes, 3 bone arms, bone white
 
 All share signature: `function createXxx(type)` → adds meshes to `spinnerGroup`.
 

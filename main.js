@@ -139,6 +139,56 @@ const SPINNER_TYPES = [
     accent: { color: 0x3060a0, metalness: 0.75, roughness: 0.18 },
     arms: 3, floor: { light: 0xd4d8e0, dark: 0x0c0c14 },
     chord: [138.59, 207.65, 277.18, 329.63]
+  },
+  {
+    name: 'Ninja Star', emoji: '\u{2728}', desc: 'Sharp 4-point shuriken',
+    body: { color: 0x404050, metalness: 0.92, roughness: 0.08, emissive: 0x080818, emissiveIntensity: 0.04 },
+    bearing: { color: 0x606070, metalness: 0.95, roughness: 0.1 },
+    balls: { color: 0x808090, metalness: 0.95, roughness: 0.06 },
+    cap: { color: 0xa0a0b0, metalness: 0.9, roughness: 0.1 },
+    accent: { color: 0xcc4444, metalness: 0.85, roughness: 0.12 },
+    arms: 4, floor: { light: 0xd8d8e0, dark: 0x101018 },
+    chord: [155.56, 233.08, 311.13, 369.99]
+  },
+  {
+    name: 'Double Deck', emoji: '\u{2261}', desc: 'Two-tier stacked design',
+    body: { color: 0x8866aa, metalness: 0.82, roughness: 0.14, emissive: 0x180828, emissiveIntensity: 0.08 },
+    bearing: { color: 0x664488, metalness: 0.85, roughness: 0.15 },
+    balls: { color: 0x9977bb, metalness: 0.88, roughness: 0.1 },
+    cap: { color: 0xddaa44, metalness: 0.78, roughness: 0.15 },
+    accent: { color: 0xddaa44, metalness: 0.8, roughness: 0.12 },
+    arms: 3, floor: { light: 0xe0dce8, dark: 0x120e18 },
+    chord: [146.83, 220.00, 293.66, 349.23]
+  },
+  {
+    name: 'Compass', emoji: '\u{2666}', desc: 'Cardinal direction points',
+    body: { color: 0xc8a870, metalness: 0.88, roughness: 0.1, emissive: 0x201808, emissiveIntensity: 0.06 },
+    bearing: { color: 0xa08050, metalness: 0.9, roughness: 0.12 },
+    balls: { color: 0xd0b880, metalness: 0.92, roughness: 0.08 },
+    cap: { color: 0xe8d8a0, metalness: 0.85, roughness: 0.1 },
+    accent: { color: 0xcc3333, metalness: 0.82, roughness: 0.15 },
+    arms: 4, floor: { light: 0xe8e4d8, dark: 0x14120e },
+    chord: [130.81, 196.00, 261.63, 311.13]
+  },
+  {
+    name: 'Gear', emoji: '\u{2699}', desc: 'Mechanical gear teeth design',
+    body: { color: 0x707078, metalness: 0.95, roughness: 0.08, emissive: 0x080808, emissiveIntensity: 0.03 },
+    bearing: { color: 0x505058, metalness: 0.98, roughness: 0.06 },
+    balls: { color: 0x909098, metalness: 0.98, roughness: 0.04 },
+    cap: { color: 0xb0b0b8, metalness: 0.95, roughness: 0.08 },
+    accent: { color: 0xe0a030, metalness: 0.85, roughness: 0.12 },
+    arms: 0, floor: { light: 0xdcdcdc, dark: 0x101014 },
+    chord: [116.54, 174.61, 233.08, 277.18]
+  },
+  {
+    name: 'Skull', emoji: '\u{2620}', desc: 'Edgy skull hub design',
+    body: { color: 0xd0d0d0, metalness: 0.6, roughness: 0.3, emissive: 0x101010, emissiveIntensity: 0.05 },
+    bearing: { color: 0x888890, metalness: 0.7, roughness: 0.25 },
+    balls: { color: 0xaaaaaa, metalness: 0.8, roughness: 0.15 },
+    cap: { color: 0xe0e0e0, metalness: 0.5, roughness: 0.35 },
+    accent: { color: 0x222222, metalness: 0.4, roughness: 0.6 },
+    arms: 3, floor: { light: 0xd8d8dc, dark: 0x0e0e12 },
+    chord: [123.47, 185.00, 246.94, 293.66]
   }
 ]
 
@@ -747,6 +797,266 @@ function createValkyrie(type) {
     const mr = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 16), accent)
     mr.position.set(aL * 0.5 + 0.5, 0, 0); mr.rotation.x = Math.PI / 2; g.add(mr)
 
+     g.rotation.z = (i / 3) * Math.PI * 2; spinnerGroup.add(g)
+  }
+}
+
+// ── Ninja Star: 4 sharp points with beveled edges ──
+
+function createNinjaStar(type) {
+  const mat = makeMat(type.body), accent = makeMat(type.accent), detail = makeMat(type.bearing), capM = makeMat(type.cap)
+  bodyMats.push(mat, accent, detail, capM); emissiveParts.push(mat, accent)
+
+  spinnerGroup.add(createBearing(type))
+
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group()
+    const angle = (i / 4) * Math.PI * 2
+
+    // Main point (sharp tapered triangle)
+    const pGeo = new THREE.BoxGeometry(2.5, 0.08, 0.5)
+    const p = pGeo.attributes.position
+    for (let v = 0; v < p.count; v++) {
+      const x = p.getX(v)
+      const taper = Math.max(1.0 - (x / 2.5 + 0.5) * 0.85, 0.1)
+      p.setZ(v, p.getZ(v) * taper)
+    }
+    p.needsUpdate = true; pGeo.computeVertexNormals()
+    const point = new THREE.Mesh(pGeo, mat)
+    point.position.set(1.2, 0, 0); point.castShadow = true; g.add(point)
+
+    // Accent stripe along point
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.01, 0.08), accent)
+    stripe.position.set(1.2, 0.045, 0); g.add(stripe)
+
+    // Red tip
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), accent)
+    tip.position.set(2.5, 0, 0); g.add(tip)
+
+    // Hub ring
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 16), detail)
+    ring.position.set(0.5, 0, 0); ring.rotation.x = Math.PI / 2; g.add(ring)
+
+    g.rotation.z = angle; spinnerGroup.add(g)
+  }
+
+  // Center cap
+  const centerCap = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.12, 32), capM)
+  centerCap.position.y = 0.08; centerCap.castShadow = true; spinnerGroup.add(centerCap)
+}
+
+// ── Double Decker: two stacked tiers ──
+
+function createDoubleDecker(type) {
+  const mat = makeMat(type.body), accent = makeMat(type.accent), detail = makeMat(type.bearing), capM = makeMat(type.cap)
+  bodyMats.push(mat, accent, detail, capM); emissiveParts.push(mat, accent, capM)
+
+  spinnerGroup.add(createBearing(type))
+
+  // Two tier levels
+  for (let tier = 0; tier < 2; tier++) {
+    const yOff = tier === 0 ? 0.05 : -0.25
+    const sc = tier === 0 ? 1.0 : 0.8
+
+    // Hub disc per tier
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.9 * sc, 0.9 * sc, 0.06, 32), tier === 0 ? mat : accent)
+    hub.position.y = yOff; hub.castShadow = true; spinnerGroup.add(hub)
+
+    // Arms per tier
+    for (let i = 0; i < 3; i++) {
+      const g = new THREE.Group()
+      const aL = 2.0 * sc, aW = 0.28 * sc, wR = 0.35 * sc
+
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(aL, 0.06, aW), tier === 0 ? mat : accent)
+      arm.position.set(aL / 2 + 0.5, 0, 0); arm.castShadow = true; g.add(arm)
+
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(wR, wR, 0.15, 20), detail)
+      w.position.set(aL + 0.5, 0, 0); w.castShadow = true; g.add(w)
+
+      const wr = new THREE.Mesh(new THREE.TorusGeometry(wR + 0.01, 0.015, 8, 20), accent)
+      wr.position.set(aL + 0.5, 0, 0); wr.rotation.x = Math.PI / 2; g.add(wr)
+
+      g.position.y = yOff
+      g.rotation.z = (i / 3) * Math.PI * 2 + (tier * Math.PI / 3)
+      spinnerGroup.add(g)
+    }
+
+    // Tier ring
+    addDecoRing(spinnerGroup, 1.2 * sc, 0.015, tier === 0 ? type.accent.color : type.bearing.color, yOff)
+  }
+
+  // Gold cap
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.08, 24), capM)
+  cap.position.y = 0.12; spinnerGroup.add(cap)
+}
+
+// ── Compass: cardinal direction points with needle ──
+
+function createCompass(type) {
+  const mat = makeMat(type.body), accent = makeMat(type.accent), detail = makeMat(type.bearing), capM = makeMat(type.cap)
+  bodyMats.push(mat, accent, detail, capM); emissiveParts.push(mat, accent, capM)
+
+  spinnerGroup.add(createBearing(type))
+
+  // Outer ring
+  addDecoRing(spinnerGroup, 2.2, 0.04, type.body.color, 0.08)
+  addDecoRing(spinnerGroup, 2.0, 0.02, type.accent.color, 0.1)
+
+  // 4 cardinal points
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group()
+    const isMain = i % 2 === 0 // N/S are bigger
+    const aL = isMain ? 2.0 : 1.4
+    const aW = isMain ? 0.35 : 0.25
+
+    // Point (tapered)
+    const pGeo = new THREE.BoxGeometry(aL, 0.07, aW)
+    const p = pGeo.attributes.position
+    for (let v = 0; v < p.count; v++) {
+      const x = p.getX(v)
+      const taper = Math.max(1.0 - (x / aL + 0.5) * 0.7, 0.15)
+      p.setZ(v, p.getZ(v) * taper)
+    }
+    p.needsUpdate = true; pGeo.computeVertexNormals()
+    const point = new THREE.Mesh(pGeo, isMain ? accent : mat)
+    point.position.set(aL / 2 + 0.6, 0, 0); point.castShadow = true; g.add(point)
+
+    // Tip diamond
+    const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.1, 0), isMain ? capM : detail)
+    tip.position.set(aL + 0.6, 0, 0); tip.scale.set(1, 0.5, 1); g.add(tip)
+
+    // Ring at base
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.015, 8, 16), detail)
+    ring.position.set(0.6, 0, 0); ring.rotation.x = Math.PI / 2; g.add(ring)
+
+    g.rotation.z = (i / 4) * Math.PI * 2; spinnerGroup.add(g)
+  }
+
+  // Inner rings
+  addDecoRing(spinnerGroup, 0.8, 0.02, type.bearing.color, 0.1)
+  addDecoRing(spinnerGroup, 0.5, 0.015, type.accent.color, 0.12)
+
+  // Center needle (N-S)
+  const needle = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), accent)
+  needle.position.y = 0.15; needle.scale.set(0.5, 1.5, 0.3); spinnerGroup.add(needle)
+}
+
+// ── Gear: mechanical gear hub with teeth ──
+
+function createGear(type) {
+  const mat = makeMat(type.body), accent = makeMat(type.accent), detail = makeMat(type.bearing), capM = makeMat(type.cap)
+  bodyMats.push(mat, accent, detail, capM); emissiveParts.push(mat, accent, capM)
+
+  spinnerGroup.add(createBearing(type))
+
+  const teeth = 16
+  const gearR = 1.8
+  const toothH = 0.25
+
+  // Gear body ring
+  const gearBody = new THREE.Mesh(new THREE.TorusGeometry(gearR, 0.3, 12, 48), mat)
+  gearBody.rotation.x = Math.PI / 2; gearBody.position.y = 0.1; gearBody.castShadow = true
+  spinnerGroup.add(gearBody)
+
+  // Gear teeth
+  for (let i = 0; i < teeth; i++) {
+    const angle = (i / teeth) * Math.PI * 2
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, toothH), i % 2 === 0 ? mat : accent)
+    tooth.position.set(
+      Math.cos(angle) * (gearR + toothH * 0.4),
+      0.1,
+      Math.sin(angle) * (gearR + toothH * 0.4)
+    )
+    tooth.rotation.y = -angle
+    tooth.castShadow = true
+    spinnerGroup.add(tooth)
+  }
+
+  // Inner gear ring (smaller)
+  const innerTeeth = 10
+  const innerR = 1.0
+  for (let i = 0; i < innerTeeth; i++) {
+    const angle = (i / innerTeeth) * Math.PI * 2 + Math.PI / innerTeeth
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.06, 0.18), detail)
+    tooth.position.set(Math.cos(angle) * (innerR + 0.08), 0.1, Math.sin(angle) * (innerR + 0.08))
+    tooth.rotation.y = -angle
+    spinnerGroup.add(tooth)
+  }
+
+  const innerRing = new THREE.Mesh(new THREE.TorusGeometry(innerR, 0.15, 10, 32), accent)
+  innerRing.rotation.x = Math.PI / 2; innerRing.position.y = 0.1; spinnerGroup.add(innerRing)
+
+  // Spokes connecting inner to outer
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2
+    spinnerGroup.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(Math.cos(a) * 0.85, 0.1, Math.sin(a) * 0.85),
+        new THREE.Vector3(Math.cos(a) * 1.5, 0.1, Math.sin(a) * 1.5)
+      ]),
+      new THREE.LineBasicMaterial({ color: type.bearing.color, transparent: true, opacity: 0.4 })
+    ))
+  }
+
+  // Center dot
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), capM)
+  dot.position.y = 0.15; spinnerGroup.add(dot)
+}
+
+// ── Skull: 3 arms with skull-themed hub ──
+
+function createSkull(type) {
+  const mat = makeMat(type.body), accent = makeMat(type.accent), detail = makeMat(type.bearing), capM = makeMat(type.cap)
+  bodyMats.push(mat, accent, detail, capM); emissiveParts.push(mat, accent)
+
+  // Large skull-like hub
+  const hub = new THREE.Mesh(new THREE.SphereGeometry(0.8, 24, 24), mat)
+  hub.position.y = 0.15; hub.scale.set(1, 0.8, 1); hub.castShadow = true; spinnerGroup.add(hub)
+
+  // Eye sockets (dark spheres)
+  for (let side = -1; side <= 1; side += 2) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), accent)
+    eye.position.set(side * 0.25, 0.25, 0.55); spinnerGroup.add(eye)
+
+    // Eye glow
+    const eyeGlow = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), makeMat({ color: 0xff2200, metalness: 0.5, roughness: 0.3, emissive: 0xff2200, emissiveIntensity: 0.8 }))
+    eyeGlow.position.set(side * 0.25, 0.25, 0.62); spinnerGroup.add(eyeGlow)
+    bodyMats.push(eyeGlow.material); emissiveParts.push(eyeGlow.material)
+  }
+
+  // Jaw line
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.3), detail)
+  jaw.position.set(0, 0.02, 0.55); spinnerGroup.add(jaw)
+
+  spinnerGroup.add(createBearing(type))
+
+  // 3 bone-like arms
+  for (let i = 0; i < 3; i++) {
+    const g = new THREE.Group(), aL = 2.2, wR = 0.3
+
+    // Bone arm (cylinder with bulges)
+    const segments = 5
+    for (let s = 0; s < segments; s++) {
+      const t = s / (segments - 1)
+      const r = 0.06 + Math.sin(t * Math.PI) * 0.05
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(r, r, aL / segments, 8), mat)
+      seg.position.set(t * aL + 0.8, 0, 0); seg.rotation.z = Math.PI / 2; seg.castShadow = true; g.add(seg)
+    }
+
+    // Knobby end
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(wR, 20, 20), mat)
+    knob.position.set(aL + 0.8, 0, 0); knob.scale.set(0.8, 1, 0.6); knob.castShadow = true; g.add(knob)
+
+    // Dark ring on knob
+    const wr = new THREE.Mesh(new THREE.TorusGeometry(wR * 0.6, 0.018, 8, 20), accent)
+    wr.position.set(aL + 0.8, 0, 0); wr.rotation.x = Math.PI / 2; g.add(wr)
+
+    // Cross detail on knob
+    const cross = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.01, wR * 0.8), accent)
+    cross.position.set(aL + 0.8, wR * 0.3, 0); g.add(cross)
+    const cross2 = new THREE.Mesh(new THREE.BoxGeometry(wR * 0.8, 0.01, 0.02), accent)
+    cross2.position.set(aL + 0.8, wR * 0.3, 0); g.add(cross2)
+
     g.rotation.z = (i / 3) * Math.PI * 2; spinnerGroup.add(g)
   }
 }
@@ -755,7 +1065,7 @@ function createValkyrie(type) {
 // ── GENERATION ──
 // ══════════════════════════════════════════
 
-const GENERATORS = [createClassic, createTri, createBar, createTorqbar, createHex, createKong, createInfinity, createValkyrie]
+const GENERATORS = [createClassic, createTri, createBar, createTorqbar, createHex, createKong, createInfinity, createValkyrie, createNinjaStar, createDoubleDecker, createCompass, createGear, createSkull]
 
 function createSpinner() {
   clearSpinner()
