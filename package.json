@@ -1,0 +1,19 @@
+{
+  "name": "fidget-spinner-3d",
+  "version": "1.0.0",
+  "description": "3D interactive fidget spinner with realistic physics, 8 designs, singing bowl audio, and dark/light themes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1",
+    "vite": "^8.0.1"
+  },
+  "dependencies": {
+    "three": "^0.183.2"
+  }
+}
