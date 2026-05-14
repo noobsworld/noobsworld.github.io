@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 
 // ══════════════════════════════════════════
 // ── THEME CONFIGS ──
@@ -10,15 +12,15 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 
 const THEMES = {
   light: {
-    sceneBg: 0xeef2f8, sceneFog: 0xeef2f8,
-    ambientColor: 0xffffff, ambientIntensity: 0.55,
-    dirColor: 0xfff5e8, dirIntensity: 1.8,
-    fillColor: 0xe0eeff, fillIntensity: 0.5,
-    rimColor: 0xffe8d0, rimIntensity: 0.4,
-    bottomColor: 0xd0e0ff, bottomIntensity: 0.25,
-    hemiSky: 0xb0d0f0, hemiGround: 0xf0e0d0, hemiIntensity: 0.5,
-    groundColor: 0xf0f0f4, gridColor1: 0xd8dce8, gridColor2: 0xe4e8f0, gridOpacity: 0.25,
-    skyTop: '#a0c4e8', skyMid: '#dce8f4', skyBot: '#eef2f8',
+    sceneBg: 0xfff8e8, sceneFog: 0xffe8d0,
+    ambientColor: 0xffffff, ambientIntensity: 0.7,  // Increased for better HDRI integration
+    dirColor: 0xfff5e8, dirIntensity: 2.2,        // Increased directional light
+    fillColor: 0xe0eeff, fillIntensity: 0.7,      // Increased fill light
+    rimColor: 0xffe8d0, rimIntensity: 0.6,        // Increased rim light for edge definition
+    bottomColor: 0xd0e0ff, bottomIntensity: 0.4,  // Increased bottom light
+    hemiSky: 0xb0d0f0, hemiGround: 0xf0e0d0, hemiIntensity: 0.7, // Increased hemisphere light
+    groundColor: 0xe8e0d8, gridColor1: 0xd8dce8, gridColor2: 0xe4e8f0, gridOpacity: 0.25,
+    skyTop: '#e8d8c0', skyMid: '#f0e0d0', skyBot: '#fff8e8',
     panelBg: 'rgba(255,255,255,0.65)', panelBorder: 'rgba(255,255,255,0.5)',
     panelShadow: '0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6)',
     textPrimary: '#2a3a5e', textSecondary: '#8899aa', textMuted: '#999',
@@ -189,6 +191,16 @@ const SPINNER_TYPES = [
     accent: { color: 0x222222, metalness: 0.4, roughness: 0.6 },
     arms: 3, floor: { light: 0xd8d8dc, dark: 0x0e0e12 },
     chord: [123.47, 185.00, 246.94, 293.66]
+  },
+  {
+    name: 'Pokeball', emoji: '\u{26AA}', desc: '3-arm spinner with spinning Pokeballs',
+    body: { color: 0xcc2222, metalness: 0.7, roughness: 0.15, emissive: 0x440000, emissiveIntensity: 0.06 },
+    bearing: { color: 0x222222, metalness: 0.8, roughness: 0.1 },
+    balls: { color: 0xeeeeee, metalness: 0.5, roughness: 0.2 },
+    cap: { color: 0xffffff, metalness: 0.6, roughness: 0.15 },
+    accent: { color: 0x111111, metalness: 0.3, roughness: 0.6 },
+    arms: 3, floor: { light: 0xf0e8e8, dark: 0x140e0e },
+    chord: [130.81, 196.00, 261.63, 311.13]
   }
 ]
 
@@ -233,13 +245,16 @@ let windFilter = null
 let masterGain = null
 let lastChimeTime = 0
 
+let pokeballSpinners = []
+
 // ══════════════════════════════════════════
 // ── SCENE SETUP ──
 // ══════════════════════════════════════════
 
 const scene = new THREE.Scene()
-scene.background = new THREE.Color(THEMES.light.sceneBg)
-scene.fog = new THREE.FogExp2(THEMES.light.sceneFog, 0.008)
+// Set initial background based on isDarkTheme
+scene.background = new THREE.Color(isDarkTheme ? THEMES.dark.sceneBg : THEMES.light.sceneBg)
+scene.fog = new THREE.FogExp2(isDarkTheme ? THEMES.dark.sceneFog : THEMES.light.sceneFog, 0.008)
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100)
 camera.position.set(0, 5, 10)
@@ -254,12 +269,40 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 document.getElementById('spinner-container').appendChild(renderer.domElement)
 
+// ══════════════════════════════════════════
+// ── ENVIRONMENT MAP (HDRI-like reflections) ──
+// ══════════════════════════════════════════
+
+// Environment setup with theme-based intensity for better visibility
+const pmremGenerator = new THREE.PMREMGenerator(renderer)
+pmremGenerator.compileEquirectangularShader()
+// Use different environment intensity for light vs dark themes
+const envIntensity = isDarkTheme ? 0.06 : 0.12  // Higher intensity in light mode
+const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), envIntensity).texture
+scene.environment = envTexture
+// Note: toneMappingExposure will be set in applyTheme()
+
+// ══════════════════════════════════════════
+// ── POST-PROCESSING ──
+// ══════════════════════════════════════════
+
 const composer = new EffectComposer(renderer)
 composer.addPass(new RenderPass(scene, camera))
+
+// SSAO - Screen Space Ambient Occlusion for depth-based shadows
+const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight)
+ssaoPass.kernelRadius = 16
+ssaoPass.minDistance = 0.005
+ssaoPass.maxDistance = 0.1
+ssaoPass.output = SSAOPass.OUTPUT.Default
+composer.addPass(ssaoPass)
+
+// Bloom
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight), 0.25, 0.5, 0.88
 )
 composer.addPass(bloomPass)
+
 
 const controls = new OrbitControls(camera, renderer.domElement)
 controls.enableDamping = true
@@ -281,14 +324,16 @@ scene.add(ambientLight)
 const dirLight = new THREE.DirectionalLight(0xfff5e8, 1.8)
 dirLight.position.set(5, 12, 7)
 dirLight.castShadow = true
-dirLight.shadow.mapSize.set(2048, 2048)
-dirLight.shadow.camera.near = 0.5
+// Enhanced shadow settings for sharper contact shadows
+dirLight.shadow.mapSize.set(4096, 4096)  // Higher resolution
+dirLight.shadow.camera.near = 0.1
 dirLight.shadow.camera.far = 50
-dirLight.shadow.camera.left = -10
-dirLight.shadow.camera.right = 10
-dirLight.shadow.camera.top = 10
-dirLight.shadow.camera.bottom = -10
-dirLight.shadow.bias = -0.0005
+dirLight.shadow.camera.left = -8
+dirLight.shadow.camera.right = 8
+dirLight.shadow.camera.top = 8
+dirLight.shadow.camera.bottom = -8
+dirLight.shadow.bias = -0.0001  // Less bias for sharper shadows
+dirLight.shadow.radius = 1  // Softer shadow edges
 scene.add(dirLight)
 
 const fillLight = new THREE.DirectionalLight(0xe0eeff, 0.5)
@@ -340,8 +385,8 @@ ground.receiveShadow = true
 scene.add(ground)
 
 const shadowPlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(8, 8),
-  new THREE.ShadowMaterial({ opacity: 0.1 })
+  new THREE.PlaneGeometry(12, 12),
+  new THREE.ShadowMaterial({ opacity: 0.25, color: 0x000000 })
 )
 shadowPlane.rotation.x = -Math.PI / 2
 shadowPlane.position.y = -0.54
@@ -355,57 +400,84 @@ grid.material.transparent = true
 scene.add(grid)
 
 function applyTheme(themeName) {
-  const t = THEMES[themeName]
-  isDarkTheme = themeName === 'dark'
+   const t = THEMES[themeName]
+   isDarkTheme = themeName === 'dark'
 
-  scene.background.setHex(t.sceneBg)
-  scene.fog.color.setHex(t.sceneFog)
+   // Use the theme's background and fog colors
+   scene.background.setHex(t.sceneBg)
+   scene.fog.color.setHex(t.sceneFog)
 
-  ambientLight.color.setHex(t.ambientColor)
-  ambientLight.intensity = t.ambientIntensity
+   // CRITICAL FIX: Disable environment map in light mode to prevent whiteout
+   // In dark mode, use environment for nice reflections
+   renderer.toneMappingExposure = isDarkTheme ? 1.0 : 1.2
+   
+   if (isDarkTheme) {
+     // Dark mode: enable environment for reflections
+     scene.environment = envTexture
+   } else {
+     // Light mode: disable environment to prevent metallic washout
+     scene.environment = null
+   }
+   
+   // Update all materials
+   scene.traverse(obj => {
+     if (obj.isMesh && obj.material) {
+       obj.material.needsUpdate = true
+     }
+   })
+   scene.fog.density = isDarkTheme ? 0.008 : 0.012
 
-  dirLight.color.setHex(t.dirColor)
-  dirLight.intensity = t.dirIntensity
+   ambientLight.color.setHex(t.ambientColor)
+   ambientLight.intensity = t.ambientIntensity
 
-  fillLight.color.setHex(t.fillColor)
-  fillLight.intensity = t.fillIntensity
+   dirLight.color.setHex(t.dirColor)
+   dirLight.intensity = t.dirIntensity
 
-  rimLight.color.setHex(t.rimColor)
-  rimLight.intensity = t.rimIntensity
+   fillLight.color.setHex(t.fillColor)
+   fillLight.intensity = t.fillIntensity
 
-  bottomLight.color.setHex(t.bottomColor)
-  bottomLight.intensity = t.bottomIntensity
+   rimLight.color.setHex(t.rimColor)
+   rimLight.intensity = t.rimIntensity
 
-  hemiLight.color.setHex(t.hemiSky)
-  hemiLight.groundColor.setHex(t.hemiGround)
-  hemiLight.intensity = t.hemiIntensity
+   bottomLight.color.setHex(t.bottomColor)
+   bottomLight.intensity = t.bottomIntensity
 
-  ground.material.color.setHex(t.groundColor)
-  grid.material.color.setHex(t.gridColor1)
-  grid.material.opacity = t.gridOpacity
+   hemiLight.color.setHex(t.hemiSky)
+   hemiLight.groundColor.setHex(t.hemiGround)
+   hemiLight.intensity = t.hemiIntensity
 
-  updateSkyTexture(t.skyTop, t.skyMid, t.skyBot)
+   ground.material.color.setHex(t.groundColor)
+   grid.material.color.setHex(t.gridColor1)
+   grid.material.opacity = t.gridOpacity
 
-  // Update floor from current spinner type
-  const type = SPINNER_TYPES[currentTypeIdx]
-  ground.material.color.setHex(isDarkTheme ? type.floor.dark : type.floor.light)
+   updateSkyTexture(t.skyTop, t.skyMid, t.skyBot)
 
-  // Update particles and speed lines
-  pMat.color.setHex(t.particleColor)
-  speedLines.children.forEach(ring => ring.material.color.setHex(t.speedLineColor))
+   // Update floor from current spinner type
+   const type = SPINNER_TYPES[currentTypeIdx]
+   ground.material.color.setHex(isDarkTheme ? type.floor.dark : type.floor.light)
 
-  // Update UI theme
-  updateUITheme(t)
+   // Update particles and speed lines
+   pMat.color.setHex(t.particleColor)
+   speedLines.children.forEach(ring => ring.material.color.setHex(t.speedLineColor))
+
+   // Update UI theme
+   updateUITheme(t)
 }
 
 // ══════════════════════════════════════════
 // ── MATERIAL HELPERS ──
 // ══════════════════════════════════════════
 
+let currentEnvIntensity = 1
 function makeMat(cfg) {
   return new THREE.MeshStandardMaterial({
-    color: cfg.color, metalness: cfg.metalness, roughness: cfg.roughness,
-    emissive: cfg.emissive || 0x000000, emissiveIntensity: cfg.emissiveIntensity || 0,
+    color: cfg.color,
+    metalness: cfg.metalness ?? 0.8,
+    roughness: cfg.roughness ?? 0.2,
+    emissive: cfg.emissive || 0x000000,
+    emissiveIntensity: cfg.emissiveIntensity || 0.15,
+    envMap: scene.environment,
+    envMapIntensity: currentEnvIntensity,
     side: THREE.DoubleSide
   })
 }
@@ -797,7 +869,7 @@ function createValkyrie(type) {
     const mr = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 16), accent)
     mr.position.set(aL * 0.5 + 0.5, 0, 0); mr.rotation.x = Math.PI / 2; g.add(mr)
 
-     g.rotation.z = (i / 3) * Math.PI * 2; spinnerGroup.add(g)
+    g.rotation.z = (i / 3) * Math.PI * 2; spinnerGroup.add(g)
   }
 }
 
@@ -1061,11 +1133,83 @@ function createSkull(type) {
   }
 }
 
+// ── Pokeball: 3-arm spinner with independently spinning Pokeballs ──
+
+function createPokeball(type) {
+  const mat = makeMat(type.body), accent = makeMat(type.accent), detail = makeMat(type.bearing), capM = makeMat(type.cap)
+  bodyMats.push(mat, accent, detail, capM); emissiveParts.push(mat, accent)
+
+  // Central hub
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.1, 32), mat)
+  hub.position.y = 0.1; hub.castShadow = true; spinnerGroup.add(hub)
+  addDecoRing(spinnerGroup, 0.7, 0.02, type.accent.color, 0.12)
+  spinnerGroup.add(createBearing(type))
+
+  // 3 arms with Pokeballs
+  pokeballSpinners = []
+  for (let i = 0; i < 3; i++) {
+    const g = new THREE.Group()
+    const angle = (i / 3) * Math.PI * 2
+    const aL = 2.2, aW = 0.18, aT = 0.08
+
+    // Arm
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(aL, aT, aW), mat)
+    arm.position.set(aL / 2 + 0.55, 0, 0); arm.castShadow = true; g.add(arm)
+
+    // Accent stripe on arm
+    const st = new THREE.Mesh(new THREE.BoxGeometry(aL * 0.9, aT + 0.006, 0.025), accent)
+    st.position.set(aL / 2 + 0.55, aT / 2 + 0.003, 0); g.add(st)
+
+    // Pokeball group (will rotate independently)
+    const pbGroup = new THREE.Group()
+    const pbR = 0.38
+
+    // Bottom white hemisphere
+    const pbBot = new THREE.Mesh(
+      new THREE.SphereGeometry(pbR, 20, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+      makeMat({ color: 0xf0f0f0, metalness: 0.3, roughness: 0.35 })
+    )
+    pbBot.position.y = -0.02; pbBot.castShadow = true; pbGroup.add(pbBot)
+
+    // Top red hemisphere
+    const pbTop = new THREE.Mesh(
+      new THREE.SphereGeometry(pbR, 20, 12, 0, Math.PI * 2, -Math.PI / 2, Math.PI / 2),
+      makeMat({ color: 0xdd2222, metalness: 0.75, roughness: 0.12, emissive: 0x330000, emissiveIntensity: 0.04 })
+    )
+    pbTop.position.y = -0.02; pbTop.castShadow = true; pbGroup.add(pbTop)
+    bodyMats.push(pbTop.material); emissiveParts.push(pbTop.material)
+
+    // Black band (torus)
+    const pbBand = new THREE.Mesh(
+      new THREE.TorusGeometry(pbR, 0.025, 8, 24),
+      makeMat({ color: 0x1a1a1a, metalness: 0.4, roughness: 0.5 })
+    )
+    pbBand.rotation.x = Math.PI / 2; pbBand.position.y = -0.02; pbGroup.add(pbBand)
+
+    // Center button (dark outer ring + white inner)
+    const btnOuter = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 16), accent)
+    btnOuter.position.y = -0.02; pbGroup.add(btnOuter)
+
+    const btnInner = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), capM)
+    btnInner.position.y = -0.02; pbGroup.add(btnInner)
+
+    // Position Pokeball at end of arm
+    pbGroup.position.set(aL + 0.55, 0, 0)
+    pbGroup.rotation.x = Math.PI / 2
+
+    // Track for independent rotation
+    pokeballSpinners.push({ group: pbGroup, speed: 0, inertia: 0.7 + Math.random() * 0.3 })
+
+    g.add(pbGroup)
+    g.rotation.z = angle; spinnerGroup.add(g)
+  }
+}
+
 // ══════════════════════════════════════════
 // ── GENERATION ──
 // ══════════════════════════════════════════
 
-const GENERATORS = [createClassic, createTri, createBar, createTorqbar, createHex, createKong, createInfinity, createValkyrie, createNinjaStar, createDoubleDecker, createCompass, createGear, createSkull]
+const GENERATORS = [createClassic, createTri, createBar, createTorqbar, createHex, createKong, createInfinity, createValkyrie, createNinjaStar, createDoubleDecker, createCompass, createGear, createSkull, createPokeball]
 
 function createSpinner() {
   clearSpinner()
@@ -1148,7 +1292,7 @@ function updateAudio(speed) {
   if (!audioCtx || !soundEnabled) return
   const t = audioCtx.currentTime, n = Math.abs(speed) / MAX_SPEED
   masterGain.gain.setTargetAtTime(n * 0.18, t, 0.1)
-  ;[0.5, 0.25, 0.15, 0.08].forEach((v, i) => bowlGains[i].gain.setTargetAtTime(v, t, 0.15))
+    ;[0.5, 0.25, 0.15, 0.08].forEach((v, i) => bowlGains[i].gain.setTargetAtTime(v, t, 0.15))
   windGain.gain.setTargetAtTime(n * 0.06, t, 0.1)
   windFilter.frequency.setTargetAtTime(400 + n * 800, t, 0.1)
   const now = performance.now()
@@ -1412,12 +1556,15 @@ function createUI() {
   const divH = document.createElement('div'); divH.className = 'divider-h'; action.appendChild(divH)
 
   themeBtn = document.createElement('button'); themeBtn.className = 'hud-btn-sm'
-  themeBtn.textContent = isDarkTheme ? '\u{1F31E} Light' : '\u{1F319} Dark'; themeBtn.id = 'theme-toggle'
-  themeBtn.addEventListener('click', () => {
-    const newTheme = isDarkTheme ? 'light' : 'dark'
-    applyTheme(newTheme)
-    themeBtn.textContent = isDarkTheme ? '\u{1F31E} Light' : '\u{1F319} Dark'
-  })
+   themeBtn.textContent = isDarkTheme ? '\u{1F31E} Light' : '\u{1F319} Dark'; themeBtn.id = 'theme-toggle'
+   themeBtn.addEventListener('click', () => {
+     console.log('Theme toggle clicked, current isDarkTheme:', isDarkTheme)
+     const newTheme = isDarkTheme ? 'light' : 'dark'
+     console.log('Calling applyTheme with:', newTheme)
+     applyTheme(newTheme)
+     console.log('After applyTheme, isDarkTheme:', isDarkTheme)
+     themeBtn.textContent = isDarkTheme ? '\u{1F31E} Light' : '\u{1F319} Dark'
+   })
   action.appendChild(themeBtn)
 
   soundBtn = document.createElement('button'); soundBtn.className = 'hud-btn-sm'; soundBtn.textContent = '\u{1F3B6} Sound Off'
@@ -1567,6 +1714,15 @@ function animate(now) {
   totalRotation += angularVelocity * dt
   spinnerGroup.rotation.y = totalRotation
 
+  // Update Pokeball independent rotation
+  for (let i = 0; i < pokeballSpinners.length; i++) {
+    const pb = pokeballSpinners[i]
+    const targetSpeed = angularVelocity * 0.35
+    const variation = Math.sin(now * 0.003 + i * 2.1) * 0.08
+    pb.speed += (targetSpeed * pb.inertia + variation - pb.speed) * 0.08 * dt * 60
+    pb.group.rotation.z += pb.speed * dt
+  }
+
   const absVel = Math.abs(angularVelocity), speedNorm = Math.min(absVel / MAX_SPEED, 1)
   spinnerGroup.rotation.x = Math.sin(now * 0.002) * speedNorm * WOBBLE
   spinnerGroup.rotation.z = Math.cos(now * 0.0017) * speedNorm * WOBBLE
@@ -1607,12 +1763,15 @@ function animate(now) {
 
 createSpinner()
 createUI()
+// Apply initial theme
+applyTheme(isDarkTheme ? 'dark' : 'light')
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  composer.setSize(window.innerWidth, window.innerHeight)
+   camera.aspect = window.innerWidth / window.innerHeight
+   camera.updateProjectionMatrix()
+   renderer.setSize(window.innerWidth, window.innerHeight)
+   composer.setSize(window.innerWidth, window.innerHeight)
+   ssaoPass.setSize(window.innerWidth, window.innerHeight)
 })
 
 document.addEventListener('visibilitychange', () => {
@@ -1620,3 +1779,5 @@ document.addEventListener('visibilitychange', () => {
 })
 
 requestAnimationFrame(animate)
+ALERT_TEST_VAR="JS_IS_LOADING"
+if(typeof ALERT_TEST_VAR !== 'undefined'){alert('JS FILE IS BEING EXECUTED: '+ALERT_TEST_VAR);}
