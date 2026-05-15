@@ -1715,10 +1715,39 @@ function applyUIThemeStyles() {
        padding: 8px 20px; pointer-events: none; white-space: nowrap; font-weight: 500;
        z-index: 110; opacity: 0.8; box-shadow: ${t.panelShadow};
      }
-     .divider-h { height: 1px; width: 100%; background: ${t.dividerColor}; }
-     /* Mobile-specific enhancements */
-     ${mobileMediaQuery}
-   `
+      .divider-h { height: 1px; width: 100%; background: ${t.dividerColor}; }
+      /* Mobile-specific enhancements */
+      ${mobileMediaQuery}
+
+      /* 3D Carousel Ring */
+      #carousel-viewport {
+        position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+        width: ${CAROUSEL_ITEM_WIDTH + 20}px; height: 90px;
+        perspective: 600px; perspective-origin: 50% 50%;
+        z-index: 200; cursor: grab; user-select: none;
+      }
+      #carousel-ring {
+        width: 100%; height: 100%; position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+      #carousel-ring:active { transition: none; }
+      .carousel-card {
+        position: absolute; width: ${CAROUSEL_ITEM_WIDTH}px; height: 80px;
+        left: 50%; top: 50%; margin-left: -${CAROUSEL_ITEM_WIDTH / 2}px; margin-top: -40px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+        background: ${t.wheelItemBg}; border: 1px solid ${t.wheelItemBorder};
+        border-radius: 16px; backface-visibility: hidden;
+        cursor: pointer; transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+      }
+      .carousel-card.active {
+        background: ${t.wheelItemActiveBg}; border-color: ${t.wheelItemActiveBorder};
+        box-shadow: 0 4px 24px rgba(80,140,200,0.2);
+      }
+      .carousel-card:hover:not(.active) { border-color: ${t.wheelItemActiveBorder}; }
+      .card-emoji { font-size: 26px; line-height: 1; }
+      .card-label { font-size: 9px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: ${t.textSecondary}; }
+    `
   }
 
 function updateUITheme(t) {
