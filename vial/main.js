@@ -1,51 +1,39 @@
 import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 
 // ══════════════════════════════════════════
 // ── CONFIGURATION ──
 // ══════════════════════════════════════════
 
 const CONFIG = {
-  // Rotation
-  rotationSpeed: 0.08,           // Radians per second (~8s per rotation)
+  rotationSpeed: 0.12,
+  autoRotate: true,
 
-  // Vial dimensions
-  vialHeight: 3.2,
+  vialHeight: 3.0,
   vialTopRadius: 0.55,
-  vialBotRadius: 0.45,
+  vialBotRadius: 0.48,
   vialNeckRadius: 0.22,
-  vialNeckHeight: 0.6,
-  vialSegments: 32,
+  vialNeckHeight: 0.5,
+  vialSegments: 48,
 
-  // Glass material
-  glassColor: 0xffffff,
-  glassTransmission: 0.95,
-  glassThickness: 0.05,
-  glassRoughness: 0.05,
-  glassIOR: 1.52,               // Index of refraction for glass
-  glassClearcoat: 1.0,
-  glassClearcoatRoughness: 0.05,
+  glassTransmission: 0.92,
+  glassThickness: 0.08,
+  glassRoughness: 0.03,
+  glassIOR: 1.52,
 
-  // Liquid
-  liquidLevel: 0.65,             // Fill percentage (0-1)
-  liquidColor: 0x88ccff,
-  liquidOpacity: 0.6,
+  liquidLevel: 0.6,
+  liquidColor: 0x44aaff,
+  liquidOpacity: 0.55,
 
-  // Peptide helix
   helixTurns: 3,
-  helixRadius: 0.22,
-  helixHeight: 1.6,
+  helixRadius: 0.24,
+  helixHeight: 1.4,
   helixSegments: 128,
-  helixTubeRadius: 0.025,
-  helixColor: 0xaaddff,
+  helixTubeRadius: 0.028,
 
-  // Lighting
-  ambientIntensity: 0.3,
-  dirIntensity: 0.8,
-  rimIntensity: 0.4,
-
-  // Camera
-  cameraDistance: 6,
-  cameraHeight: 0.5
+  cameraDistance: 5.5,
+  cameraHeight: 0.8
 }
 
 // ══════════════════════════════════════════
@@ -54,127 +42,225 @@ const CONFIG = {
 
 const container = document.getElementById('canvas-container')
 const scene = new THREE.Scene()
-scene.background = new THREE.Color(0x0c0c0c)
 
-const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100)
+// Gradient background
+const bgCanvas = document.createElement('canvas')
+bgCanvas.width = 512; bgCanvas.height = 512
+const bgCtx = bgCanvas.getContext('2d')
+const grad = bgCtx.createRadialGradient(256, 200, 50, 256, 256, 400)
+grad.addColorStop(0, '#1a2235')
+grad.addColorStop(0.4, '#0f1520')
+grad.addColorStop(1, '#080810')
+bgCtx.fillStyle = grad
+bgCtx.fillRect(0, 0, 512, 512)
+const bgTexture = new THREE.CanvasTexture(bgCanvas)
+scene.background = bgTexture
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100)
 camera.position.set(0, CONFIG.cameraHeight, CONFIG.cameraDistance)
-camera.lookAt(0, 0, 0)
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.2
+renderer.toneMappingExposure = 1.6
 container.appendChild(renderer.domElement)
 
+// Environment map
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.06).texture
+pmrem.dispose()
+
 // ══════════════════════════════════════════
-// ── LIGHTING (minimal, dark HUD style) ──
+// ── ORBIT CONTROLS ──
 // ══════════════════════════════════════════
 
-const ambientLight = new THREE.AmbientLight(0x404050, CONFIG.ambientIntensity)
-scene.add(ambientLight)
+const controls = new OrbitControls(camera, renderer.domElement)
+controls.enableDamping = true
+controls.dampingFactor = 0.06
+controls.autoRotate = CONFIG.autoRotate
+controls.autoRotateSpeed = 1.0
+controls.minDistance = 3
+controls.maxDistance = 10
+controls.enablePan = false
+controls.target.set(0, 0, 0)
 
-const dirLight = new THREE.DirectionalLight(0xffffff, CONFIG.dirIntensity)
-dirLight.position.set(3, 5, 4)
-scene.add(dirLight)
+renderer.domElement.addEventListener('dblclick', () => {
+  controls.autoRotate = !controls.autoRotate
+})
 
-const rimLight = new THREE.DirectionalLight(0x88aacc, CONFIG.rimIntensity)
-rimLight.position.set(-4, 2, -3)
+// ══════════════════════════════════════════
+// ── LIGHTING (rich, multi-source) ──
+// ══════════════════════════════════════════
+
+scene.add(new THREE.AmbientLight(0x405070, 0.8))
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.5)
+keyLight.position.set(4, 6, 5)
+scene.add(keyLight)
+
+const fillLight = new THREE.DirectionalLight(0x88aacc, 1.2)
+fillLight.position.set(-5, 3, 2)
+scene.add(fillLight)
+
+const rimLight = new THREE.DirectionalLight(0x6699cc, 1.5)
+rimLight.position.set(0, 2, -6)
 scene.add(rimLight)
+
+// Colored accent lights
+const accent1 = new THREE.PointLight(0x4488ff, 5, 15)
+accent1.position.set(3, 2, 3)
+scene.add(accent1)
+
+const accent2 = new THREE.PointLight(0x8844ff, 3, 12)
+accent2.position.set(-3, 0, -2)
+scene.add(accent2)
+
+const bottomGlow = new THREE.PointLight(0x2266aa, 4, 10)
+bottomGlow.position.set(0, -4, 2)
+scene.add(bottomGlow)
+
+// ══════════════════════════════════════════
+// ── BACKGROUND GLOW SPHERE ──
+// ══════════════════════════════════════════
+
+const glowSphere = new THREE.Mesh(
+  new THREE.SphereGeometry(4, 32, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0x1a3355,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.BackSide
+  })
+)
+glowSphere.position.set(0, 0, -2)
+scene.add(glowSphere)
+
+// ══════════════════════════════════════════
+// ── GROUND GRID ──
+// ══════════════════════════════════════════
+
+const gridHelper = new THREE.GridHelper(20, 40, 0x1a2233, 0x0f1520)
+gridHelper.position.y = -2.5
+gridHelper.material.transparent = true
+gridHelper.material.opacity = 0.3
+scene.add(gridHelper)
+
+// Ground plane with subtle reflection
+const groundGeo = new THREE.PlaneGeometry(30, 30)
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x0a0f18,
+  roughness: 0.6,
+  metalness: 0.3,
+  transparent: true,
+  opacity: 0.5
+})
+const ground = new THREE.Mesh(groundGeo, groundMat)
+ground.rotation.x = -Math.PI / 2
+ground.position.y = -2.49
+scene.add(ground)
+
+// ══════════════════════════════════════════
+// ── FLOATING PARTICLES ──
+// ══════════════════════════════════════════
+
+const particleCount = 200
+const pGeo = new THREE.BufferGeometry()
+const pPositions = new Float32Array(particleCount * 3)
+const pSizes = new Float32Array(particleCount)
+
+for (let i = 0; i < particleCount; i++) {
+  pPositions[i * 3] = (Math.random() - 0.5) * 12
+  pPositions[i * 3 + 1] = (Math.random() - 0.5) * 8
+  pPositions[i * 3 + 2] = (Math.random() - 0.5) * 10
+  pSizes[i] = Math.random() * 3 + 1
+}
+
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3))
+pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes, 1))
+
+const pMat = new THREE.PointsMaterial({
+  color: 0x6699cc,
+  size: 0.04,
+  transparent: true,
+  opacity: 0.4,
+  sizeAttenuation: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false
+})
+const particles = new THREE.Points(pGeo, pMat)
+scene.add(particles)
 
 // ══════════════════════════════════════════
 // ── GLASS VIAL ──
 // ══════════════════════════════════════════
 
 function createVialProfile() {
-  const points = []
+  const pts = []
   const h = CONFIG.vialHeight
-  const topR = CONFIG.vialTopRadius
-  const botR = CONFIG.vialBotRadius
-  const neckR = CONFIG.vialNeckRadius
-  const neckH = CONFIG.vialNeckHeight
+  const tR = CONFIG.vialTopRadius
+  const bR = CONFIG.vialBotRadius
+  const nR = CONFIG.vialNeckRadius
+  const nH = CONFIG.vialNeckHeight
 
-  // Bottom curve (rounded)
-  for (let i = 0; i <= 8; i++) {
-    const t = i / 8
-    const y = -h / 2 + t * 0.3
-    const r = botR * Math.sin(t * Math.PI * 0.5) + 0.02
-    points.push(new THREE.Vector2(r, y))
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10
+    pts.push(new THREE.Vector2(bR * Math.sin(t * Math.PI * 0.5) + 0.02, -h / 2 + t * 0.35))
   }
-
-  // Body (slightly tapered)
-  for (let i = 0; i <= 16; i++) {
-    const t = i / 16
-    const y = -h / 2 + 0.3 + t * (h - neckH - 0.6)
-    const r = THREE.MathUtils.lerp(botR + 0.02, topR, t)
-    points.push(new THREE.Vector2(r, y))
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20
+    const y = -h / 2 + 0.35 + t * (h - nH - 0.7)
+    pts.push(new THREE.Vector2(THREE.MathUtils.lerp(bR + 0.02, tR, t), y))
   }
-
-  // Shoulder taper to neck
-  for (let i = 0; i <= 8; i++) {
-    const t = i / 8
-    const y = h / 2 - neckH + t * 0.2
-    const r = THREE.MathUtils.lerp(topR, neckR, t)
-    points.push(new THREE.Vector2(r, y))
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10
+    const y = h / 2 - nH + t * 0.25
+    pts.push(new THREE.Vector2(THREE.MathUtils.lerp(tR, nR, t), y))
   }
-
-  // Neck
-  for (let i = 0; i <= 8; i++) {
-    const t = i / 8
-    const y = h / 2 - neckH + 0.2 + t * (neckH - 0.2)
-    const r = neckR
-    points.push(new THREE.Vector2(r, y))
+  for (let i = 0; i <= 10; i++) {
+    const t = i / 10
+    pts.push(new THREE.Vector2(nR, h / 2 - nH + 0.25 + t * (nH - 0.25)))
   }
-
-  // Rim (slight flare)
-  for (let i = 0; i <= 4; i++) {
-    const t = i / 4
-    const y = h / 2 + t * 0.08
-    const r = neckR + t * 0.06
-    points.push(new THREE.Vector2(r, y))
+  for (let i = 0; i <= 6; i++) {
+    const t = i / 6
+    pts.push(new THREE.Vector2(nR + t * 0.08, h / 2 + t * 0.1))
   }
-
-  return points
+  return pts
 }
 
-const vialProfile = createVialProfile()
-const vialGeo = new THREE.LatheGeometry(vialProfile, CONFIG.vialSegments)
-
+const vialGeo = new THREE.LatheGeometry(createVialProfile(), CONFIG.vialSegments)
 const glassMat = new THREE.MeshPhysicalMaterial({
-  color: CONFIG.glassColor,
+  color: 0xffffff,
   transmission: CONFIG.glassTransmission,
   thickness: CONFIG.glassThickness,
   roughness: CONFIG.glassRoughness,
   ior: CONFIG.glassIOR,
-  clearcoat: CONFIG.glassClearcoat,
-  clearcoatRoughness: CONFIG.glassClearcoatRoughness,
+  clearcoat: 1.0,
+  clearcoatRoughness: 0.02,
   transparent: true,
-  opacity: 0.35,
+  opacity: 0.25,
   side: THREE.DoubleSide,
-  envMapIntensity: 0.5
+  envMapIntensity: 1.2
 })
-
 const vialMesh = new THREE.Mesh(vialGeo, glassMat)
 scene.add(vialMesh)
 
-// ══════════════════════════════════════════
-// ── CONTOUR / EDGE LINES ──
-// ══════════════════════════════════════════
-
-const edgesGeo = new THREE.EdgesGeometry(vialGeo, 15)
-const edgesMat = new THREE.LineBasicMaterial({ color: 0x334455, transparent: true, opacity: 0.3 })
-const vialEdges = new THREE.LineSegments(edgesGeo, edgesMat)
+// Edge wireframe
+const vialEdges = new THREE.LineSegments(
+  new THREE.EdgesGeometry(vialGeo, 15),
+  new THREE.LineBasicMaterial({ color: 0x556677, transparent: true, opacity: 0.3 })
+)
 scene.add(vialEdges)
 
-// Horizontal contour rings
-const contourCount = 8
-for (let i = 0; i < contourCount; i++) {
-  const t = (i + 1) / (contourCount + 1)
+// Contour rings
+for (let i = 0; i < 10; i++) {
+  const t = (i + 1) / 11
   const y = -CONFIG.vialHeight / 2 + t * CONFIG.vialHeight
-  const r = THREE.MathUtils.lerp(CONFIG.vialBotRadius, CONFIG.vialTopRadius, t) * 1.01
-  const ringGeo = new THREE.TorusGeometry(r, 0.003, 4, 64)
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0x223344, transparent: true, opacity: 0.2 })
-  const ring = new THREE.Mesh(ringGeo, ringMat)
+  const r = THREE.MathUtils.lerp(CONFIG.vialBotRadius, CONFIG.vialTopRadius, t) * 1.015
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(r, 0.004, 4, 64),
+    new THREE.MeshBasicMaterial({ color: 0x445566, transparent: true, opacity: 0.2 })
+  )
   ring.rotation.x = Math.PI / 2
   ring.position.y = y
   scene.add(ring)
@@ -184,23 +270,19 @@ for (let i = 0; i < contourCount; i++) {
 // ── CAP ──
 // ══════════════════════════════════════════
 
-const capGeo = new THREE.CylinderGeometry(0.28, 0.26, 0.25, 32)
+const capGeo = new THREE.CylinderGeometry(0.3, 0.27, 0.28, 32)
 const capMat = new THREE.MeshPhysicalMaterial({
-  color: 0x1a1a2e,
-  metalness: 0.8,
-  roughness: 0.3,
-  clearcoat: 0.5
+  color: 0x2a2a3e, metalness: 0.8, roughness: 0.2, clearcoat: 0.7
 })
 const capMesh = new THREE.Mesh(capGeo, capMat)
-capMesh.position.y = CONFIG.vialHeight / 2 + 0.08
+capMesh.position.y = CONFIG.vialHeight / 2 + 0.1
 scene.add(capMesh)
 
-// Cap edge
 const capEdges = new THREE.LineSegments(
   new THREE.EdgesGeometry(capGeo),
-  new THREE.LineBasicMaterial({ color: 0x334455, transparent: true, opacity: 0.4 })
+  new THREE.LineBasicMaterial({ color: 0x556677, transparent: true, opacity: 0.4 })
 )
-capEdges.position.copy(capMesh.position)
+capEdges.position.y = capMesh.position.y
 scene.add(capEdges)
 
 // ══════════════════════════════════════════
@@ -208,35 +290,32 @@ scene.add(capEdges)
 // ══════════════════════════════════════════
 
 const liquidH = CONFIG.vialHeight * CONFIG.liquidLevel
-const liquidY = -CONFIG.vialHeight / 2 + liquidH / 2 + 0.1
-const liquidTopR = THREE.MathUtils.lerp(CONFIG.vialBotRadius, CONFIG.vialTopRadius, CONFIG.liquidLevel) * 0.92
+const liquidY = -CONFIG.vialHeight / 2 + liquidH / 2 + 0.15
+const liquidTopR = THREE.MathUtils.lerp(CONFIG.vialBotRadius, CONFIG.vialTopRadius, CONFIG.liquidLevel) * 0.9
 
-const liquidGeo = new THREE.CylinderGeometry(liquidTopR, CONFIG.vialBotRadius * 0.9, liquidH, 32)
-const liquidMat = new THREE.MeshPhysicalMaterial({
-  color: CONFIG.liquidColor,
-  transparent: true,
-  opacity: CONFIG.liquidOpacity,
-  roughness: 0.1,
-  transmission: 0.3,
-  thickness: 0.1,
-  ior: 1.33
-})
-const liquidMesh = new THREE.Mesh(liquidGeo, liquidMat)
+const liquidMesh = new THREE.Mesh(
+  new THREE.CylinderGeometry(liquidTopR, CONFIG.vialBotRadius * 0.88, liquidH, 32),
+  new THREE.MeshPhysicalMaterial({
+    color: CONFIG.liquidColor,
+    transparent: true,
+    opacity: CONFIG.liquidOpacity,
+    roughness: 0.08,
+    transmission: 0.4,
+    thickness: 0.15,
+    ior: 1.33,
+    envMapIntensity: 0.6
+  })
+)
 liquidMesh.position.y = liquidY
 scene.add(liquidMesh)
 
-// Meniscus (curved liquid surface)
-const meniscusGeo = new THREE.SphereGeometry(liquidTopR, 32, 8, 0, Math.PI * 2, 0, Math.PI * 0.3)
-const meniscusMat = new THREE.MeshPhysicalMaterial({
-  color: CONFIG.liquidColor,
-  transparent: true,
-  opacity: 0.5,
-  roughness: 0.05,
-  transmission: 0.4,
-  thickness: 0.05,
-  side: THREE.DoubleSide
-})
-const meniscusMesh = new THREE.Mesh(meniscusGeo, meniscusMat)
+const meniscusMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(liquidTopR, 32, 8, 0, Math.PI * 2, 0, Math.PI * 0.3),
+  new THREE.MeshPhysicalMaterial({
+    color: CONFIG.liquidColor, transparent: true, opacity: 0.5,
+    roughness: 0.05, transmission: 0.5, thickness: 0.05, side: THREE.DoubleSide
+  })
+)
 meniscusMesh.position.y = liquidY + liquidH / 2 - 0.02
 meniscusMesh.rotation.x = Math.PI
 scene.add(meniscusMesh)
@@ -245,121 +324,100 @@ scene.add(meniscusMesh)
 // ── PEPTIDE HELIX ──
 // ══════════════════════════════════════════
 
-function createHelixPath(turns, radius, height, segments) {
-  const points = []
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments
-    const angle = t * turns * Math.PI * 2
-    const x = Math.cos(angle) * radius
-    const z = Math.sin(angle) * radius
-    const y = -height / 2 + t * height
-    points.push(new THREE.Vector3(x, y, z))
+function createHelix(turns, radius, height, segs) {
+  const pts = []
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs
+    const a = t * turns * Math.PI * 2
+    pts.push(new THREE.Vector3(Math.cos(a) * radius, -height / 2 + t * height, Math.sin(a) * radius))
   }
-  return new THREE.CatmullRomCurve3(points)
+  return new THREE.CatmullRomCurve3(pts)
 }
 
-const helixPath = createHelixPath(
-  CONFIG.helixTurns,
-  CONFIG.helixRadius,
-  CONFIG.helixHeight,
-  CONFIG.helixSegments
-)
+const helixPath = createHelix(CONFIG.helixTurns, CONFIG.helixRadius, CONFIG.helixHeight, CONFIG.helixSegments)
 
-const helixGeo = new THREE.TubeGeometry(helixPath, CONFIG.helixSegments, CONFIG.helixTubeRadius, 8, false)
-const helixMat = new THREE.MeshPhysicalMaterial({
-  color: CONFIG.helixColor,
-  emissive: 0x224466,
-  emissiveIntensity: 0.3,
-  metalness: 0.2,
-  roughness: 0.4,
-  transparent: true,
-  opacity: 0.85
-})
-const helixMesh = new THREE.Mesh(helixGeo, helixMat)
-helixMesh.position.y = -0.2
+const helixMesh = new THREE.Mesh(
+  new THREE.TubeGeometry(helixPath, CONFIG.helixSegments, CONFIG.helixTubeRadius, 8, false),
+  new THREE.MeshPhysicalMaterial({
+    color: CONFIG.helixColor, emissive: 0x336699, emissiveIntensity: 0.5,
+    metalness: 0.15, roughness: 0.35, transparent: true, opacity: 0.9
+  })
+)
+helixMesh.position.y = -0.15
 scene.add(helixMesh)
 
-// Helix wireframe overlay
-const helixWireGeo = new THREE.TubeGeometry(helixPath, CONFIG.helixSegments, CONFIG.helixTubeRadius * 1.5, 6, false)
-const helixWireMat = new THREE.MeshBasicMaterial({
-  color: 0x66aadd,
-  wireframe: true,
-  transparent: true,
-  opacity: 0.15
-})
-const helixWireMesh = new THREE.Mesh(helixWireGeo, helixWireMat)
-helixWireMesh.position.y = -0.2
-scene.add(helixWireMesh)
+const helixWire = new THREE.Mesh(
+  new THREE.TubeGeometry(helixPath, CONFIG.helixSegments, CONFIG.helixTubeRadius * 1.8, 6, false),
+  new THREE.MeshBasicMaterial({ color: 0x66bbff, wireframe: true, transparent: true, opacity: 0.15 })
+)
+helixWire.position.y = -0.15
+scene.add(helixWire)
 
-// Side chains (small spheres along helix)
-const chainCount = 12
-for (let i = 0; i < chainCount; i++) {
-  const t = (i + 0.5) / chainCount
-  const point = helixPath.getPoint(t)
-  const tangent = helixPath.getTangent(t)
-
-  const chainGeo = new THREE.SphereGeometry(0.035, 8, 8)
-  const chainMat = new THREE.MeshPhysicalMaterial({
-    color: 0xaaddff,
-    emissive: 0x336688,
-    emissiveIntensity: 0.2,
-    transparent: true,
-    opacity: 0.7
-  })
-  const chainMesh = new THREE.Mesh(chainGeo, chainMat)
-  chainMesh.position.copy(point).add(tangent.clone().multiplyScalar(0.08))
-  chainMesh.position.y -= 0.2
-  scene.add(chainMesh)
+// Side chains
+const sideChains = []
+for (let i = 0; i < 14; i++) {
+  const t = (i + 0.5) / 14
+  const pt = helixPath.getPoint(t)
+  const tan = helixPath.getTangent(t)
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(0.04, 8, 8),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xaaddff, emissive: 0x447799, emissiveIntensity: 0.4,
+      transparent: true, opacity: 0.8
+    })
+  )
+  sphere.position.copy(pt).add(tan.clone().multiplyScalar(0.1))
+  sphere.position.y -= 0.15
+  scene.add(sphere)
+  sideChains.push(sphere)
 }
 
 // ══════════════════════════════════════════
-// ── HUD OVERLAY ELEMENTS ──
+// ── HUD ELEMENTS ──
 // ══════════════════════════════════════════
 
-// Subtle crosshair lines
-const crosshairMat = new THREE.LineBasicMaterial({ color: 0x223344, transparent: true, opacity: 0.15 })
-
-const hLineGeo = new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(-2.5, 0, 0), new THREE.Vector3(2.5, 0, 0)
-])
-const hLine = new THREE.Line(hLineGeo, crosshairMat)
-scene.add(hLine)
-
-const vLineGeo = new THREE.BufferGeometry().setFromPoints([
-  new THREE.Vector3(0, -2, 0), new THREE.Vector3(0, 2, 0)
-])
-const vLine = new THREE.Line(vLineGeo, crosshairMat)
-scene.add(vLine)
+const hudMat = new THREE.LineBasicMaterial({ color: 0x334455, transparent: true, opacity: 0.1 })
+const hLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-2.5, 0, 0), new THREE.Vector3(2.5, 0, 0)]), hudMat)
+const vLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -2, 0), new THREE.Vector3(0, 2, 0)]), hudMat)
+scene.add(hLine, vLine)
 
 // ══════════════════════════════════════════
 // ── ANIMATION ──
 // ══════════════════════════════════════════
 
-const rotatables = [vialMesh, vialEdges, capMesh, capEdges, liquidMesh, meniscusMesh, helixMesh, helixWireMesh, hLine, vLine]
+const all = [vialMesh, vialEdges, capMesh, capEdges, liquidMesh, meniscusMesh, helixMesh, helixWire, hLine, vLine]
 
 function animate(time) {
   requestAnimationFrame(animate)
+  const t = time * 0.001
 
-  const dt = time * 0.001
-  const angle = dt * CONFIG.rotationSpeed
+  // Floating motion
+  const floatY = Math.sin(t * 0.5) * 0.06
+  all.forEach(obj => { obj.position.y = (obj.position.y || 0) + (obj === vialMesh ? floatY - obj.position.y : 0) })
 
-  rotatables.forEach(obj => {
-    obj.rotation.y += angle
-  })
+  // Helix pulse
+  helixMesh.material.emissiveIntensity = 0.4 + Math.sin(t * 1.5) * 0.2
 
-  // Subtle floating motion
-  const floatY = Math.sin(time * 0.0005) * 0.05
-  rotatables.forEach(obj => {
-    obj.position.y = (obj.position.y || 0) + (obj === vialMesh ? floatY - obj.position.y : 0)
-  })
+  // Particles drift
+  const positions = particles.geometry.attributes.position.array
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3 + 1] += Math.sin(t * 0.3 + i) * 0.001
+    positions[i * 3] += Math.cos(t * 0.2 + i * 0.5) * 0.0005
+  }
+  particles.geometry.attributes.position.needsUpdate = true
 
+  // Accent lights pulse
+  accent1.intensity = 4 + Math.sin(t * 0.8) * 1.5
+  accent2.intensity = 2.5 + Math.cos(t * 0.6) * 1
+
+  controls.update()
   renderer.render(scene, camera)
 }
 
 animate(0)
 
 // ══════════════════════════════════════════
-// ── RESIZE HANDLER ──
+// ── RESIZE ──
 // ══════════════════════════════════════════
 
 window.addEventListener('resize', () => {
