@@ -43,18 +43,17 @@ const CONFIG = {
 const container = document.getElementById('canvas-container')
 const scene = new THREE.Scene()
 
-// Gradient background
+// Deep gradient background — dark navy to near-black
 const bgCanvas = document.createElement('canvas')
 bgCanvas.width = 512; bgCanvas.height = 512
 const bgCtx = bgCanvas.getContext('2d')
-const grad = bgCtx.createRadialGradient(256, 200, 50, 256, 256, 400)
-grad.addColorStop(0, '#1a2235')
-grad.addColorStop(0.4, '#0f1520')
-grad.addColorStop(1, '#080810')
+const grad = bgCtx.createRadialGradient(256, 180, 30, 256, 256, 420)
+grad.addColorStop(0, '#141e30')
+grad.addColorStop(0.5, '#0d1220')
+grad.addColorStop(1, '#060810')
 bgCtx.fillStyle = grad
 bgCtx.fillRect(0, 0, 512, 512)
-const bgTexture = new THREE.CanvasTexture(bgCanvas)
-scene.background = bgTexture
+scene.background = new THREE.CanvasTexture(bgCanvas)
 
 const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100)
 camera.position.set(0, CONFIG.cameraHeight, CONFIG.cameraDistance)
@@ -63,12 +62,12 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'hi
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.6
+renderer.toneMappingExposure = 1.3
 container.appendChild(renderer.domElement)
 
 // Environment map
 const pmrem = new THREE.PMREMGenerator(renderer)
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.06).texture
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
 pmrem.dispose()
 
 // ══════════════════════════════════════════
@@ -78,8 +77,8 @@ pmrem.dispose()
 const controls = new OrbitControls(camera, renderer.domElement)
 controls.enableDamping = true
 controls.dampingFactor = 0.06
-controls.autoRotate = CONFIG.autoRotate
-controls.autoRotateSpeed = 1.0
+controls.autoRotate = true
+controls.autoRotateSpeed = 0.8
 controls.minDistance = 3
 controls.maxDistance = 10
 controls.enablePan = false
@@ -90,106 +89,41 @@ renderer.domElement.addEventListener('dblclick', () => {
 })
 
 // ══════════════════════════════════════════
-// ── LIGHTING (rich, multi-source) ──
+// ── LIGHTING (color theory: analogous cool + split-complementary warm) ──
 // ══════════════════════════════════════════
 
-scene.add(new THREE.AmbientLight(0x405070, 0.8))
+// Base ambient — very subtle cool fill
+scene.add(new THREE.AmbientLight(0x1a2233, 0.5))
 
-const keyLight = new THREE.DirectionalLight(0xffffff, 2.5)
-keyLight.position.set(4, 6, 5)
+// Key light — cool white (6500K feel), main illumination
+const keyLight = new THREE.DirectionalLight(0xe8f0ff, 1.8)
+keyLight.position.set(3, 5, 4)
 scene.add(keyLight)
 
-const fillLight = new THREE.DirectionalLight(0x88aacc, 1.2)
-fillLight.position.set(-5, 3, 2)
+// Fill light — soft teal (analogous to blue), prevents harsh shadows
+const fillLight = new THREE.DirectionalLight(0x88bbcc, 0.6)
+fillLight.position.set(-4, 2, 3)
 scene.add(fillLight)
 
-const rimLight = new THREE.DirectionalLight(0x6699cc, 1.5)
-rimLight.position.set(0, 2, -6)
+// Rim/back light — deep blue, creates edge separation
+const rimLight = new THREE.DirectionalLight(0x3355aa, 0.8)
+rimLight.position.set(0, 1, -5)
 scene.add(rimLight)
 
-// Colored accent lights
-const accent1 = new THREE.PointLight(0x4488ff, 5, 15)
-accent1.position.set(3, 2, 3)
-scene.add(accent1)
+// Accent 1 — soft amber (split-complement to blue), warmth contrast
+const amberLight = new THREE.PointLight(0xffaa55, 1.5, 12)
+amberLight.position.set(2, 1, 3)
+scene.add(amberLight)
 
-const accent2 = new THREE.PointLight(0x8844ff, 3, 12)
-accent2.position.set(-3, 0, -2)
-scene.add(accent2)
+// Accent 2 — muted cyan (analogous), subtle cool highlight
+const cyanLight = new THREE.PointLight(0x44cccc, 0.8, 10)
+cyanLight.position.set(-2, -1, -2)
+scene.add(cyanLight)
 
-const bottomGlow = new THREE.PointLight(0x2266aa, 4, 10)
-bottomGlow.position.set(0, -4, 2)
-scene.add(bottomGlow)
-
-// ══════════════════════════════════════════
-// ── BACKGROUND GLOW SPHERE ──
-// ══════════════════════════════════════════
-
-const glowSphere = new THREE.Mesh(
-  new THREE.SphereGeometry(4, 32, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0x1a3355,
-    transparent: true,
-    opacity: 0.15,
-    side: THREE.BackSide
-  })
-)
-glowSphere.position.set(0, 0, -2)
-scene.add(glowSphere)
-
-// ══════════════════════════════════════════
-// ── GROUND GRID ──
-// ══════════════════════════════════════════
-
-const gridHelper = new THREE.GridHelper(20, 40, 0x1a2233, 0x0f1520)
-gridHelper.position.y = -2.5
-gridHelper.material.transparent = true
-gridHelper.material.opacity = 0.3
-scene.add(gridHelper)
-
-// Ground plane with subtle reflection
-const groundGeo = new THREE.PlaneGeometry(30, 30)
-const groundMat = new THREE.MeshStandardMaterial({
-  color: 0x0a0f18,
-  roughness: 0.6,
-  metalness: 0.3,
-  transparent: true,
-  opacity: 0.5
-})
-const ground = new THREE.Mesh(groundGeo, groundMat)
-ground.rotation.x = -Math.PI / 2
-ground.position.y = -2.49
-scene.add(ground)
-
-// ══════════════════════════════════════════
-// ── FLOATING PARTICLES ──
-// ══════════════════════════════════════════
-
-const particleCount = 200
-const pGeo = new THREE.BufferGeometry()
-const pPositions = new Float32Array(particleCount * 3)
-const pSizes = new Float32Array(particleCount)
-
-for (let i = 0; i < particleCount; i++) {
-  pPositions[i * 3] = (Math.random() - 0.5) * 12
-  pPositions[i * 3 + 1] = (Math.random() - 0.5) * 8
-  pPositions[i * 3 + 2] = (Math.random() - 0.5) * 10
-  pSizes[i] = Math.random() * 3 + 1
-}
-
-pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3))
-pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes, 1))
-
-const pMat = new THREE.PointsMaterial({
-  color: 0x6699cc,
-  size: 0.04,
-  transparent: true,
-  opacity: 0.4,
-  sizeAttenuation: true,
-  blending: THREE.AdditiveBlending,
-  depthWrite: false
-})
-const particles = new THREE.Points(pGeo, pMat)
-scene.add(particles)
+// Bottom fill — deep indigo, prevents bottom from going pure black
+const bottomFill = new THREE.PointLight(0x223366, 0.6, 8)
+bottomFill.position.set(0, -4, 2)
+scene.add(bottomFill)
 
 // ══════════════════════════════════════════
 // ── GLASS VIAL ──
@@ -395,20 +329,12 @@ function animate(time) {
   const floatY = Math.sin(t * 0.5) * 0.06
   all.forEach(obj => { obj.position.y = (obj.position.y || 0) + (obj === vialMesh ? floatY - obj.position.y : 0) })
 
-  // Helix pulse
-  helixMesh.material.emissiveIntensity = 0.4 + Math.sin(t * 1.5) * 0.2
+  // Helix pulse — subtle breathing
+  helixMesh.material.emissiveIntensity = 0.35 + Math.sin(t * 1.2) * 0.15
 
-  // Particles drift
-  const positions = particles.geometry.attributes.position.array
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3 + 1] += Math.sin(t * 0.3 + i) * 0.001
-    positions[i * 3] += Math.cos(t * 0.2 + i * 0.5) * 0.0005
-  }
-  particles.geometry.attributes.position.needsUpdate = true
-
-  // Accent lights pulse
-  accent1.intensity = 4 + Math.sin(t * 0.8) * 1.5
-  accent2.intensity = 2.5 + Math.cos(t * 0.6) * 1
+  // Accent lights — gentle breathing (not flashing)
+  amberLight.intensity = 1.3 + Math.sin(t * 0.6) * 0.3
+  cyanLight.intensity = 0.7 + Math.cos(t * 0.4) * 0.2
 
   controls.update()
   renderer.render(scene, camera)
