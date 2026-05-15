@@ -12,7 +12,8 @@ export default defineConfig({
         rollupOptions: {
             input: {
                 main: resolve(__dirname, 'index.html'),
-                spinner: resolve(__dirname, 'spinner/index.html')
+                spinner: resolve(__dirname, 'spinner/index.html'),
+                vial: resolve(__dirname, 'vial/index.html')
             }
         }
     }
