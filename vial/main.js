@@ -31,6 +31,7 @@ const CONFIG = {
   helixHeight: 1.4,
   helixSegments: 128,
   helixTubeRadius: 0.028,
+  helixColor: 0x88ccff,
 
   cameraDistance: 5.5,
   cameraHeight: 0.8
@@ -220,39 +221,273 @@ capEdges.position.y = capMesh.position.y
 scene.add(capEdges)
 
 // ══════════════════════════════════════════
-// ── LIQUID ──
+// ── LIQUID (animated waves, caustics, bubbles) ──
 // ══════════════════════════════════════════
 
 const liquidH = CONFIG.vialHeight * CONFIG.liquidLevel
-const liquidY = -CONFIG.vialHeight / 2 + liquidH / 2 + 0.15
-const liquidTopR = THREE.MathUtils.lerp(CONFIG.vialBotRadius, CONFIG.vialTopRadius, CONFIG.liquidLevel) * 0.9
+const liquidBaseY = -CONFIG.vialHeight / 2 + 0.15
+const liquidTopR = THREE.MathUtils.lerp(CONFIG.vialBotRadius, CONFIG.vialTopRadius, CONFIG.liquidLevel) * 0.92
 
-const liquidMesh = new THREE.Mesh(
-  new THREE.CylinderGeometry(liquidTopR, CONFIG.vialBotRadius * 0.88, liquidH, 32),
-  new THREE.MeshPhysicalMaterial({
-    color: CONFIG.liquidColor,
-    transparent: true,
-    opacity: CONFIG.liquidOpacity,
-    roughness: 0.08,
-    transmission: 0.4,
-    thickness: 0.15,
-    ior: 1.33,
-    envMapIntensity: 0.6
-  })
-)
-liquidMesh.position.y = liquidY
+// Custom liquid geometry with wave displacement
+const LIQUID_SEGMENTS = 64
+const LIQUID_RINGS = 24
+const liqGeo = new THREE.CylinderGeometry(liquidTopR, CONFIG.vialBotRadius * 0.88, liquidH, LIQUID_SEGMENTS, LIQUID_RINGS, true)
+
+// Vertex shader: animate surface waves
+const liquidVertShader = `
+  uniform float uTime;
+  uniform float uWaveAmp;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vWorldPos;
+  varying float vWaveHeight;
+
+  void main() {
+    vUv = uv;
+    vec3 pos = position;
+    float dist = length(pos.xz);
+    float angle = atan(pos.z, pos.x);
+
+    // Multi-frequency surface waves (stronger near edges)
+    float edgeFactor = smoothstep(0.0, 1.0, dist / 0.55);
+    float wave1 = sin(angle * 3.0 + uTime * 1.2) * 0.025;
+    float wave2 = sin(angle * 5.0 - uTime * 0.8 + 1.5) * 0.015;
+    float wave3 = cos(angle * 2.0 + uTime * 1.7 + 0.7) * 0.01;
+    float wave4 = sin(dist * 8.0 - uTime * 2.0) * 0.008;
+
+    float totalWave = (wave1 + wave2 + wave3 + wave4) * edgeFactor * uWaveAmp;
+
+    // Only displace top portion of liquid (surface region)
+    float topFactor = smoothstep(pos.y - 0.3, pos.y + 0.1, 0.0);
+    pos.y += totalWave * topFactor;
+
+    // Subtle internal slosh
+    float slosh = sin(uTime * 0.7 + angle) * 0.005 * (1.0 - topFactor);
+    pos.x += slosh;
+
+    vWaveHeight = totalWave * topFactor;
+    vNormal = normalMatrix * normal;
+    vWorldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+  }
+`
+
+// Fragment shader: colorful volumetric liquid with caustics
+const liquidFragShader = `
+  uniform vec3 uColor1;
+  uniform vec3 uColor2;
+  uniform vec3 uColor3;
+  uniform float uTime;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  varying vec3 vWorldPos;
+  varying float vWaveHeight;
+
+  void main() {
+    // Depth-based color gradient (bottom dark, top bright)
+    float depth = smoothstep(-1.5, 0.5, vWorldPos.y);
+    vec3 baseColor = mix(uColor1, uColor2, depth);
+
+    // Iridescent fresnel-like rim
+    vec3 viewDir = normalize(cameraPosition - vWorldPos);
+    float fresnel = 1.0 - max(dot(normalize(vNormal), viewDir), 0.0);
+    fresnel = pow(fresnel, 2.5);
+    vec3 iridescence = uColor3 * fresnel * 0.6;
+
+    // Animated caustic pattern
+    float cx = vWorldPos.x * 4.0 + uTime * 0.3;
+    float cy = vWorldPos.z * 4.0 + uTime * 0.2;
+    float caustic1 = sin(cx * 3.14 + cy * 2.7 + uTime) * 0.5 + 0.5;
+    float caustic2 = sin(cx * 2.3 - cy * 3.5 + uTime * 1.3) * 0.5 + 0.5;
+    float caustic = caustic1 * caustic2;
+    caustic = pow(caustic, 3.0) * 0.35;
+
+    // Wave highlight on surface
+    float waveHighlight = smoothstep(0.01, 0.03, vWaveHeight) * 0.2;
+
+    // Internal glow from bottom
+    float bottomGlow = exp(-abs(vWorldPos.y + 1.2) * 2.0) * 0.15;
+
+    vec3 finalColor = baseColor + iridescence + vec3(caustic) + vec3(waveHighlight) + uColor3 * bottomGlow;
+
+    // Subtle volumetric depth fog
+    float depthFog = smoothstep(-1.5, 0.5, vWorldPos.y) * 0.15;
+    finalColor = mix(finalColor * 0.7, finalColor, 1.0 - depthFog);
+
+    gl_FragColor = vec4(finalColor, uOpacity);
+  }
+`
+
+const liquidMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uWaveAmp: { value: 1.0 },
+    uColor1: { value: new THREE.Color(0x0a2a5c) },   // deep navy bottom
+    uColor2: { value: new THREE.Color(0x2288cc) },   // bright cyan mid
+    uColor3: { value: new THREE.Color(0x44eeff) },   // iridescent teal highlight
+    uOpacity: { value: 0.75 }
+  },
+  vertexShader: liquidVertShader,
+  fragmentShader: liquidFragShader,
+  transparent: true,
+  side: THREE.DoubleSide,
+  depthWrite: false
+})
+
+const liquidMesh = new THREE.Mesh(liqGeo, liquidMat)
+liquidMesh.position.y = liquidBaseY + liquidH / 2
 scene.add(liquidMesh)
 
-const meniscusMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(liquidTopR, 32, 8, 0, Math.PI * 2, 0, Math.PI * 0.3),
-  new THREE.MeshPhysicalMaterial({
-    color: CONFIG.liquidColor, transparent: true, opacity: 0.5,
-    roughness: 0.05, transmission: 0.5, thickness: 0.05, side: THREE.DoubleSide
-  })
-)
-meniscusMesh.position.y = liquidY + liquidH / 2 - 0.02
-meniscusMesh.rotation.x = Math.PI
+// Liquid bottom cap (solid disc)
+const liquidBottomGeo = new THREE.CircleGeometry(CONFIG.vialBotRadius * 0.88, 48)
+const liquidBottomMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uColor: { value: new THREE.Color(0x0a2a5c) },
+    uOpacity: { value: 0.8 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 uColor;
+    uniform float uTime;
+    uniform float uOpacity;
+    varying vec2 vUv;
+    void main() {
+      float r = length(vUv - 0.5) * 2.0;
+      float glow = 1.0 - smoothstep(0.0, 1.0, r);
+      float caustic = sin(vUv.x * 12.0 + uTime) * sin(vUv.y * 12.0 + uTime * 0.7) * 0.5 + 0.5;
+      caustic = pow(caustic, 4.0) * 0.3;
+      vec3 col = uColor * (0.6 + glow * 0.4 + caustic);
+      gl_FragColor = vec4(col, uOpacity);
+    }
+  `,
+  transparent: true,
+  side: THREE.DoubleSide,
+  depthWrite: false
+})
+const liquidBottom = new THREE.Mesh(liquidBottomGeo, liquidBottomMat)
+liquidBottom.rotation.x = -Math.PI / 2
+liquidBottom.position.y = liquidBaseY + 0.01
+scene.add(liquidBottom)
+
+// Animated surface meniscus
+const meniscusGeo = new THREE.CircleGeometry(liquidTopR, 48)
+const meniscusMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: { value: 0 },
+    uColor1: { value: new THREE.Color(0x2288cc) },
+    uColor2: { value: new THREE.Color(0x44eeff) },
+    uOpacity: { value: 0.6 }
+  },
+  vertexShader: `
+    uniform float uTime;
+    varying vec2 vUv;
+    varying float vWave;
+
+    void main() {
+      vUv = uv;
+      vec3 pos = position;
+      float dist = length(pos.xy);
+      float angle = atan(pos.y, pos.x);
+
+      // Surface wave displacement
+      float w1 = sin(angle * 3.0 + uTime * 1.2) * 0.02;
+      float w2 = sin(angle * 5.0 - uTime * 0.8) * 0.012;
+      float w3 = cos(dist * 10.0 - uTime * 1.5) * 0.006;
+      float wave = (w1 + w2 + w3) * smoothstep(0.0, 0.5, dist);
+
+      // Meniscus curve (edges slightly higher due to surface tension)
+      float meniscusCurve = pow(dist / 0.55, 2.0) * 0.02;
+
+      pos.z = wave + meniscusCurve;
+      vWave = wave;
+
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 uColor1;
+    uniform vec3 uColor2;
+    uniform float uTime;
+    uniform float uOpacity;
+    varying vec2 vUv;
+    varying float vWave;
+
+    void main() {
+      float dist = length(vUv - 0.5) * 2.0;
+      vec3 base = mix(uColor2, uColor1, dist);
+
+      // Caustic shimmer
+      float c = sin(vUv.x * 15.0 + uTime * 0.8) * sin(vUv.y * 13.0 + uTime * 0.6);
+      c = pow(c * 0.5 + 0.5, 4.0) * 0.25;
+
+      // Wave highlights
+      float highlight = smoothstep(0.01, 0.025, vWave) * 0.3;
+
+      vec3 col = base + vec3(c) + vec3(highlight);
+
+      // Edge transparency (meniscus fades at glass boundary)
+      float edgeFade = 1.0 - smoothstep(0.85, 1.0, dist);
+
+      gl_FragColor = vec4(col, uOpacity * edgeFade);
+    }
+  `,
+  transparent: true,
+  side: THREE.DoubleSide,
+  depthWrite: false
+})
+const meniscusMesh = new THREE.Mesh(meniscusGeo, meniscusMat)
+meniscusMesh.rotation.x = -Math.PI / 2
+meniscusMesh.position.y = liquidBaseY + liquidH
 scene.add(meniscusMesh)
+
+// Rising bubbles
+const BUBBLE_COUNT = 35
+const bubbles = []
+const bubbleGeo = new THREE.SphereGeometry(1, 12, 12)
+
+for (let i = 0; i < BUBBLE_COUNT; i++) {
+  const scale = 0.012 + Math.random() * 0.025
+  const bubble = new THREE.Mesh(bubbleGeo, new THREE.MeshPhysicalMaterial({
+    color: 0x88ddff,
+    transparent: true,
+    opacity: 0.3 + Math.random() * 0.2,
+    roughness: 0.0,
+    metalness: 0.0,
+    transmission: 0.8,
+    thickness: 0.02,
+    ior: 1.33,
+    envMapIntensity: 0.5,
+    depthWrite: false
+  }))
+
+  const angle = Math.random() * Math.PI * 2
+  const radius = Math.random() * liquidTopR * 0.7
+  bubble.scale.setScalar(scale)
+  bubble.position.set(
+    Math.cos(angle) * radius,
+    liquidBaseY + Math.random() * liquidH,
+    Math.sin(angle) * radius
+  )
+  bubble.userData = {
+    speed: 0.15 + Math.random() * 0.3,
+    radius,
+    angle,
+    wobbleSpeed: 1.0 + Math.random() * 2.0,
+    wobbleAmp: 0.01 + Math.random() * 0.02,
+    baseY: bubble.position.y
+  }
+  scene.add(bubble)
+  bubbles.push(bubble)
+}
 
 // ══════════════════════════════════════════
 // ── PEPTIDE HELIX ──
@@ -319,7 +554,7 @@ scene.add(hLine, vLine)
 // ── ANIMATION ──
 // ══════════════════════════════════════════
 
-const all = [vialMesh, vialEdges, capMesh, capEdges, liquidMesh, meniscusMesh, helixMesh, helixWire, hLine, vLine]
+const all = [vialMesh, vialEdges, capMesh, capEdges, liquidMesh, meniscusMesh, helixMesh, helixWire, hLine, vLine, liquidBottom]
 
 function animate(time) {
   requestAnimationFrame(animate)
@@ -328,6 +563,26 @@ function animate(time) {
   // Floating motion
   const floatY = Math.sin(t * 0.5) * 0.06
   all.forEach(obj => { obj.position.y = (obj.position.y || 0) + (obj === vialMesh ? floatY - obj.position.y : 0) })
+
+  // Liquid shader time
+  liquidMat.uniforms.uTime.value = t
+  liquidBottomMat.uniforms.uTime.value = t
+  meniscusMat.uniforms.uTime.value = t
+
+  // Animate bubbles rising
+  for (const b of bubbles) {
+    const d = b.userData
+    d.angle += Math.sin(t * d.wobbleSpeed) * 0.02
+    b.position.x = Math.cos(d.angle) * d.radius + Math.sin(t * d.wobbleSpeed) * d.wobbleAmp
+    b.position.z = Math.sin(d.angle) * d.radius + Math.cos(t * d.wobbleSpeed * 0.7) * d.wobbleAmp
+    b.position.y += d.speed * 0.016
+    // Reset when reaching surface
+    if (b.position.y > liquidBaseY + liquidH - 0.05) {
+      b.position.y = liquidBaseY + 0.05 + Math.random() * 0.2
+      d.angle = Math.random() * Math.PI * 2
+      d.radius = Math.random() * liquidTopR * 0.7
+    }
+  }
 
   // Helix pulse — subtle breathing
   helixMesh.material.emissiveIntensity = 0.35 + Math.sin(t * 1.2) * 0.15
