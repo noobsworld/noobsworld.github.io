@@ -335,13 +335,6 @@ scene.add(vLine)
 // ── ANIMATION ──
 // ══════════════════════════════════════════
 
-const vialGroup = new THREE.Group()
-// Add all objects to a group for rotation
-[vialMesh, vialEdges, capMesh, capEdges, liquidMesh, meniscusMesh, helixMesh, helixWireMesh, hLine, vLine].forEach(obj => {
-  vialGroup.add(obj.clone ? obj : obj)
-})
-
-// Actually, let's just rotate the scene objects directly
 const rotatables = [vialMesh, vialEdges, capMesh, capEdges, liquidMesh, meniscusMesh, helixMesh, helixWireMesh, hLine, vLine]
 
 function animate(time) {
