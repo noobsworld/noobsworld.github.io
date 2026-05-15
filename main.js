@@ -267,6 +267,15 @@ renderer.toneMappingExposure = 1.5
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
+// Mobile detection
+const isMobile = /Mobi|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent)
+
+// Reduce shadow quality on mobile for performance
+if (isMobile) {
+  dirLight.shadow.mapSize.set(1024, 1024)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+}
+
 document.getElementById('spinner-container').appendChild(renderer.domElement)
 
 // ══════════════════════════════════════════
@@ -1315,23 +1324,35 @@ function toggleSound() {
   updateSoundButton()
 }
 
-// ══════════════════════════════════════════
-// ── INTERACTION ──
-// ══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// ── INTERACTION (with mobile flick support) ──
+// ═══════════════════════════════════════════
 
 const raycaster = new THREE.Raycaster()
 const spinPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 const intersection = new THREE.Vector3()
 
+// Mobile flick tracking
+const POINTER_HISTORY_SIZE = 8
+let pointerHistory = []
+
 function onPointerDown(event) {
+  // Only respond to left button (pointerType !== 'mouse' or button === 0)
   if (event.target.tagName !== 'CANVAS') return
-  const ndc = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1)
-  raycaster.setFromCamera(ndc, camera)
+  if (event.button && event.button !== 0) return
+
+  pointerHistory = []
+  pointerHistory.push({ x: event.clientX, y: event.clientY, time: performance.now() })
+
+  isDraggingSpinner = true
+  dragStartPos = { x: event.clientX, y: event.clientY }
+  dragStartTime = performance.now()
+  controls.enabled = false
+  raycaster.setFromCamera(new THREE.Vector2(
+    (event.clientX / window.innerWidth) * 2 - 1,
+    -(event.clientY / window.innerHeight) * 2 + 1
+  ), camera)
   if (raycaster.intersectObject(spinnerGroup, true).length > 0) {
-    isDraggingSpinner = true
-    dragStartPos = { x: event.clientX, y: event.clientY }
-    dragStartTime = performance.now()
-    controls.enabled = false
     raycaster.ray.intersectPlane(spinPlane, intersection)
     lastAngle = Math.atan2(intersection.z, intersection.x)
     renderer.domElement.style.cursor = 'grabbing'
@@ -1340,27 +1361,63 @@ function onPointerDown(event) {
 
 function onPointerMove(event) {
   if (!isDraggingSpinner) {
-    const ndc = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1)
-    raycaster.setFromCamera(ndc, camera)
+    raycaster.setFromCamera(new THREE.Vector2(
+      (event.clientX / window.innerWidth) * 2 - 1,
+      -(event.clientY / window.innerHeight) * 2 + 1
+    ), camera)
     renderer.domElement.style.cursor = raycaster.intersectObject(spinnerGroup, true).length > 0 ? 'grab' : 'default'
     return
   }
-  const ndc = new THREE.Vector2((event.clientX / window.innerWidth) * 2 - 1, -(event.clientY / window.innerHeight) * 2 + 1)
-  raycaster.setFromCamera(ndc, camera)
+
+  // Track pointer for flick velocity
+  pointerHistory.push({ x: event.clientX, y: event.clientY, time: performance.now() })
+  if (pointerHistory.length > POINTER_HISTORY_SIZE) {
+    pointerHistory.shift()
+  }
+
+  raycaster.setFromCamera(new THREE.Vector2(
+    (event.clientX / window.innerWidth) * 2 - 1,
+    -(event.clientY / window.innerHeight) * 2 + 1
+  ), camera)
   raycaster.ray.intersectPlane(spinPlane, intersection)
   let delta = Math.atan2(intersection.z, intersection.x) - lastAngle
   if (delta > Math.PI) delta -= Math.PI * 2
   if (delta < -Math.PI) delta += Math.PI * 2
-  angularVelocity += delta * TORQUE_SCALE
+
+  // Higher velocity on mobile for natural feel
+  const isTouch = event.pointerType === 'touch'
+  const torqueMultiplier = isTouch ? TORQUE_SCALE * 1.5 : TORQUE_SCALE
+  angularVelocity += delta * torqueMultiplier
   angularVelocity = THREE.MathUtils.clamp(angularVelocity, -MAX_SPEED, MAX_SPEED)
   lastAngle = Math.atan2(intersection.z, intersection.x)
 }
 
 function onPointerUp(event) {
   if (!isDraggingSpinner) return
-  isDraggingSpinner = false; controls.enabled = true; renderer.domElement.style.cursor = 'default'
+  isDraggingSpinner = false
+  controls.enabled = true
+  renderer.domElement.style.cursor = 'default'
+
+  const isTouch = event.pointerType === 'touch'
   const dist = Math.sqrt((event.clientX - dragStartPos.x) ** 2 + (event.clientY - dragStartPos.y) ** 2)
-  if (dist < 12 && performance.now() - dragStartTime < 250) {
+  const elapsed = performance.now() - dragStartTime
+
+  // Flick detection: calculate velocity from pointer history
+  if (pointerHistory.length >= 2) {
+    const last = pointerHistory[pointerHistory.length - 1]
+    const first = pointerHistory[0]
+    const dx = last.x - first.x
+    const dt = last.time - first.time
+    if (dt > 0) {
+      const velocity = dx / dt // pixels per ms
+      // Apply flick as angular velocity (tuned for mobile feel)
+      const flickForce = isTouch ? velocity * 0.8 : velocity * 0.5
+      angularVelocity = THREE.MathUtils.clamp(angularVelocity + flickForce, -MAX_SPEED, MAX_SPEED)
+    }
+  }
+
+  // Tap (quick click) boost - works on both desktop and mobile
+  if (dist < 15 && elapsed < 250) {
     angularVelocity += SPACE_BOOST * (Math.random() > 0.5 ? 1 : -1)
     angularVelocity = THREE.MathUtils.clamp(angularVelocity, -MAX_SPEED, MAX_SPEED)
   }
@@ -1588,84 +1645,81 @@ function createUI() {
 }
 
 function applyUIThemeStyles() {
-  const t = isDarkTheme ? THEMES.dark : THEMES.light
-  uiStyleEl.textContent = `
-    #ui-root { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
-    .hud-panel {
-      position: fixed; pointer-events: auto;
-      background: ${t.panelBg}; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-      border: 1px solid ${t.panelBorder}; border-radius: 22px; color: ${t.textPrimary};
-      font-family: 'Inter', system-ui, sans-serif; box-shadow: ${t.panelShadow};
-    }
-    .hud-btn {
-      background: ${t.btnBg}; border: 1px solid ${t.btnBorder}; color: ${t.btnText};
-      padding: 10px 20px; border-radius: 14px; font-family: 'Inter', system-ui, sans-serif;
-      font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s ease;
-    }
-    .hud-btn:hover { background: ${t.btnHover}; transform: translateY(-1px); }
-    .hud-btn:active { transform: translateY(0); }
-    .hud-btn-sm {
-      background: ${t.btnBg}; border: 1px solid ${t.btnBorder}; color: ${t.textSecondary};
-      padding: 7px 14px; border-radius: 10px; font-family: 'Inter', system-ui, sans-serif;
-      font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.25s ease;
-    }
-    .hud-btn-sm:hover { background: ${t.btnHover}; }
-    .hud-btn-active { border-color: rgba(80,140,200,0.4); color: ${t.textPrimary}; }
-    #rpm-display { position: fixed; top: 28px; left: 28px; padding: 22px 30px; }
-    #rpm-value {
-      font-family: 'JetBrains Mono', monospace; font-size: 52px; font-weight: 600;
-      line-height: 1; color: ${t.textPrimary}; letter-spacing: -2px; transition: color 0.5s;
-    }
-    #rpm-label { font-size: 10px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: ${t.textMuted}; margin-top: 6px; }
-    #stats-display { position: fixed; top: 28px; right: 28px; padding: 18px 24px; min-width: 170px; }
-    .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid ${t.dividerColor}; }
-    .stat-row:last-child { border-bottom: none; }
-    .stat-label { font-size: 10px; font-weight: 500; letter-spacing: 0.5px; color: ${t.textMuted}; text-transform: uppercase; }
-    .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; color: ${t.textPrimary}; }
-    #type-info { position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; z-index: 110; }
-    #type-name { font-size: 18px; font-weight: 600; color: ${t.textPrimary}; letter-spacing: 4px; text-transform: uppercase; }
-    #type-desc { font-size: 11px; color: ${t.textSecondary}; letter-spacing: 1px; margin-top: 4px; }
-    #action-bar { position: fixed; right: 28px; bottom: 28px; display: flex; flex-direction: column; gap: 8px; padding: 14px; }
-    #hint-text {
-      position: fixed; top: 105px; left: 50%; transform: translateX(-50%);
-      font-size: 11px; letter-spacing: 1px; color: ${t.textPrimary};
-      background: ${t.panelBg}; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      border: 1px solid ${t.panelBorder}; border-radius: 12px;
-      padding: 8px 20px; pointer-events: none; white-space: nowrap; font-weight: 500;
-      z-index: 110; opacity: 0.8; box-shadow: ${t.panelShadow};
-    }
-    .divider-h { height: 1px; width: 100%; background: ${t.dividerColor}; }
-
-    /* 3D Carousel Ring */
-    #carousel-viewport {
-      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-      width: ${CAROUSEL_ITEM_WIDTH + 20}px; height: 90px;
-      perspective: 600px; perspective-origin: 50% 50%;
-      z-index: 200; cursor: grab; user-select: none;
-    }
-    #carousel-ring {
-      width: 100%; height: 100%; position: relative;
-      transform-style: preserve-3d;
-      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-    #carousel-ring:active { transition: none; }
-    .carousel-card {
-      position: absolute; width: ${CAROUSEL_ITEM_WIDTH}px; height: 80px;
-      left: 50%; top: 50%; margin-left: -${CAROUSEL_ITEM_WIDTH / 2}px; margin-top: -40px;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-      background: ${t.wheelItemBg}; border: 1px solid ${t.wheelItemBorder};
-      border-radius: 16px; backface-visibility: hidden;
-      cursor: pointer; transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
-    }
-    .carousel-card.active {
-      background: ${t.wheelItemActiveBg}; border-color: ${t.wheelItemActiveBorder};
-      box-shadow: 0 4px 24px rgba(80,140,200,0.2);
-    }
-    .carousel-card:hover:not(.active) { border-color: ${t.wheelItemActiveBorder}; }
-    .card-emoji { font-size: 26px; line-height: 1; }
-    .card-label { font-size: 9px; font-weight: 600; letter-spacing: 0.8px; text-transform: uppercase; color: ${t.textSecondary}; }
-  `
-}
+   const t = isDarkTheme ? THEMES.dark : THEMES.light
+   // Add mobile-specific CSS for better touch feedback
+   const mobileMediaQuery = `@media (pointer: coarse) {
+     .hud-btn, .hud-btn-sm { padding: 14px 24px; font-size: 14px; }
+     .hud-btn-sm { padding: 10px 18px; min-width: 44px; min-height: 44px; }
+     #hint-text { display: none; }
+     #action-bar { gap: 12px; }
+     #rpm-value { font-size: 42px; }
+   }`
+   const isMobile = /Mobi|Android/i.test(navigator.userAgent)
+   const touchStyles = `
+     /* Touch feedback */
+     .hud-btn, .hud-btn-sm {
+       -webkit-tap-highlight-color: transparent;
+       touch-action: manipulation;
+       user-select: none;
+       -webkit-user-drag: none;
+     }
+     .hud-btn:active, .hud-btn-sm:active {
+       background: ${t.btnHover};
+       transform: scale(0.97);
+     }
+   `
+   uiStyleEl.textContent = `
+     #ui-root { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+     .hud-panel {
+       position: fixed; pointer-events: auto;
+       background: ${t.panelBg}; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+       border: 1px solid ${t.panelBorder}; border-radius: 22px; color: ${t.textPrimary};
+       font-family: 'Inter', system-ui, sans-serif; box-shadow: ${t.panelShadow};
+     }
+     .hud-btn {
+       background: ${t.btnBg}; border: 1px solid ${t.btnBorder}; color: ${t.btnText};
+       padding: 10px 20px; border-radius: 14px; font-family: 'Inter', system-ui, sans-serif;
+       font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s ease;
+       ${touchStyles}
+     }
+     .hud-btn:hover { background: ${t.btnHover}; transform: translateY(-1px); }
+     .hud-btn:active { transform: translateY(0); }
+     .hud-btn-sm {
+       background: ${t.btnBg}; border: 1px solid ${t.btnBorder}; color: ${t.textSecondary};
+       padding: 7px 14px; border-radius: 10px; font-family: 'Inter', system-ui, sans-serif;
+       font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.25s ease;
+       ${touchStyles}
+     }
+     .hud-btn-sm:hover { background: ${t.btnHover}; }
+     .hud-btn-active { border-color: rgba(80,140,200,0.4); color: ${t.textPrimary}; }
+     #rpm-display { position: fixed; top: 28px; left: 28px; padding: 22px 30px; }
+     #rpm-value {
+       font-family: 'JetBrains Mono', monospace; font-size: 52px; font-weight: 600;
+       line-height: 1; color: ${t.textPrimary}; letter-spacing: -2px; transition: color 0.5s;
+     }
+     #rpm-label { font-size: 10px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: ${t.textMuted}; margin-top: 6px; }
+     #stats-display { position: fixed; top: 28px; right: 28px; padding: 18px 24px; min-width: 170px; }
+     .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid ${t.dividerColor}; }
+     .stat-row:last-child { border-bottom: none; }
+     .stat-label { font-size: 10px; font-weight: 500; letter-spacing: 0.5px; color: ${t.textMuted}; text-transform: uppercase; }
+     .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500; color: ${t.textPrimary}; }
+     #type-info { position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; z-index: 110; }
+     #type-name { font-size: 18px; font-weight: 600; color: ${t.textPrimary}; letter-spacing: 4px; text-transform: uppercase; }
+     #type-desc { font-size: 11px; color: ${t.textSecondary}; letter-spacing: 1px; margin-top: 4px; }
+     #action-bar { position: fixed; right: 28px; bottom: 28px; display: flex; flex-direction: column; gap: 8px; padding: 14px; }
+     #hint-text {
+       position: fixed; top: 105px; left: 50%; transform: translateX(-50%);
+       font-size: 11px; letter-spacing: 1px; color: ${t.textPrimary};
+       background: ${t.panelBg}; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+       border: 1px solid ${t.panelBorder}; border-radius: 12px;
+       padding: 8px 20px; pointer-events: none; white-space: nowrap; font-weight: 500;
+       z-index: 110; opacity: 0.8; box-shadow: ${t.panelShadow};
+     }
+     .divider-h { height: 1px; width: 100%; background: ${t.dividerColor}; }
+     /* Mobile-specific enhancements */
+     ${mobileMediaQuery}
+   `
+  }
 
 function updateUITheme(t) {
   applyUIThemeStyles()
@@ -1775,9 +1829,19 @@ window.addEventListener('resize', () => {
 })
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) lastFrameTime = performance.now()
-})
+   if (!document.hidden) lastFrameTime = performance.now()
+ })
+
+// Handle mobile orientation change
+ window.addEventListener('orientationchange', () => {
+   // Allow device to settle after rotation
+   setTimeout(() => {
+     camera.aspect = window.innerWidth / window.innerHeight
+     camera.updateProjectionMatrix()
+     renderer.setSize(window.innerWidth, window.innerHeight)
+     composer.setSize(window.innerWidth, window.innerHeight)
+     ssaoPass.setSize(window.innerWidth, window.innerHeight)
+   }, 250)
+ })
 
 requestAnimationFrame(animate)
-ALERT_TEST_VAR="JS_IS_LOADING"
-if(typeof ALERT_TEST_VAR !== 'undefined'){alert('JS FILE IS BEING EXECUTED: '+ALERT_TEST_VAR);}
