@@ -412,23 +412,17 @@ function applyTheme(themeName) {
    const t = THEMES[themeName]
    isDarkTheme = themeName === 'dark'
 
-   // Use the theme's background and fog colors
    scene.background.setHex(t.sceneBg)
    scene.fog.color.setHex(t.sceneFog)
 
-   // CRITICAL FIX: Disable environment map in light mode to prevent whiteout
-   // In dark mode, use environment for nice reflections
-   renderer.toneMappingExposure = isDarkTheme ? 1.0 : 1.2
-   
    if (isDarkTheme) {
-     // Dark mode: enable environment for reflections
+     renderer.toneMappingExposure = 1.0
      scene.environment = envTexture
    } else {
-     // Light mode: disable environment to prevent metallic washout
+     renderer.toneMappingExposure = 1.0
      scene.environment = null
    }
    
-   // Update all materials
    scene.traverse(obj => {
      if (obj.isMesh && obj.material) {
        obj.material.needsUpdate = true
@@ -438,19 +432,14 @@ function applyTheme(themeName) {
 
    ambientLight.color.setHex(t.ambientColor)
    ambientLight.intensity = t.ambientIntensity
-
    dirLight.color.setHex(t.dirColor)
    dirLight.intensity = t.dirIntensity
-
    fillLight.color.setHex(t.fillColor)
    fillLight.intensity = t.fillIntensity
-
    rimLight.color.setHex(t.rimColor)
    rimLight.intensity = t.rimIntensity
-
    bottomLight.color.setHex(t.bottomColor)
    bottomLight.intensity = t.bottomIntensity
-
    hemiLight.color.setHex(t.hemiSky)
    hemiLight.groundColor.setHex(t.hemiGround)
    hemiLight.intensity = t.hemiIntensity
@@ -1646,14 +1635,28 @@ function createUI() {
 
 function applyUIThemeStyles() {
    const t = isDarkTheme ? THEMES.dark : THEMES.light
-   // Add mobile-specific CSS for better touch feedback
-   const mobileMediaQuery = `@media (pointer: coarse) {
-     .hud-btn, .hud-btn-sm { padding: 14px 24px; font-size: 14px; }
-     .hud-btn-sm { padding: 10px 18px; min-width: 44px; min-height: 44px; }
-     #hint-text { display: none; }
-     #action-bar { gap: 12px; }
-     #rpm-value { font-size: 42px; }
-   }`
+    // Add mobile-specific CSS for better touch feedback
+    const mobileMediaQuery = `@media (max-width: 768px), (pointer: coarse) {
+      /* Reposition UI to avoid overlapping spinner */
+      #rpm-display { top: 12px; left: 12px; padding: 12px 16px; }
+      #rpm-value { font-size: 28px; }
+      #rpm-label { font-size: 8px; }
+      #stats-display { top: 12px; right: 12px; padding: 10px 14px; min-width: 120px; }
+      .stat-label { font-size: 8px; }
+      .stat-value { font-size: 11px; }
+      #type-info { bottom: 140px; }
+      #type-name { font-size: 14px; letter-spacing: 2px; }
+      #type-desc { font-size: 9px; }
+      #hint-text { top: 60px; font-size: 9px; padding: 6px 14px; }
+      #action-bar { right: 12px; bottom: 12px; padding: 10px; gap: 6px; }
+      .hud-btn { padding: 8px 14px; font-size: 11px; border-radius: 10px; }
+      .hud-btn-sm { padding: 6px 10px; font-size: 10px; border-radius: 8px; min-width: 44px; min-height: 44px; }
+      /* Carousel adjustments */
+      #carousel-viewport { bottom: 15px; width: calc(100vw - 24px); max-width: 320px; height: 85px; }
+      .carousel-card { width: 65px; height: 75px; }
+      .card-emoji { font-size: 24px; }
+      .card-label { font-size: 7px; }
+    }`
    const isMobile = /Mobi|Android/i.test(navigator.userAgent)
    const touchStyles = `
      /* Touch feedback */
