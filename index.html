@@ -3,19 +3,419 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fidget Spinner</title>
+  <title>3D Playground — Interactive Web Experiences</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #0a0a14;
+      --surface: #12121e;
+      --surface-hover: #1a1a2e;
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(100,160,220,0.3);
+      --text: #e0e8f0;
+      --text-secondary: #8899aa;
+      --text-muted: #556677;
+      --accent: #4a9eff;
+      --accent-glow: rgba(74,158,255,0.15);
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; font-family: 'Inter', system-ui, sans-serif; background: #e8f0fc; }
-    #spinner-container { position: fixed; inset: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Hero */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 30%, rgba(74,158,255,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 100px;
+      background: rgba(74,158,255,0.1);
+      border: 1px solid rgba(74,158,255,0.2);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+      margin-bottom: 2rem;
+      letter-spacing: 0.5px;
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, #fff 0%, #8899aa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--text-secondary);
+      max-width: 600px;
+      line-height: 1.6;
+      margin-bottom: 2.5rem;
+    }
+    .scroll-hint {
+      position: absolute;
+      bottom: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .scroll-hint svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--text-muted);
+    }
+
+    /* Projects Grid */
+    .projects {
+      padding: 4rem 2rem 6rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .section-header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+    .section-header h2 {
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 0.75rem;
+    }
+    .section-header p {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1.5rem;
+    }
+    .card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 40px var(--accent-glow);
+    }
+    .card-preview {
+      height: 220px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #0a0a14 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .card-preview::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, transparent 60%, var(--surface));
+    }
+    .card-preview .icon {
+      font-size: 4rem;
+      z-index: 1;
+      filter: drop-shadow(0 4px 20px rgba(74,158,255,0.3));
+    }
+    .card-content {
+      padding: 1.5rem;
+    }
+    .card-tag {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(74,158,255,0.1);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    .card h3 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.5px;
+    }
+    .card p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+    .card-tech {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .card-tech span {
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .card-arrow {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+    .card:hover .card-arrow {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .card-arrow svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--text-secondary);
+      transition: stroke 0.3s ease;
+    }
+    .card:hover .card-arrow svg {
+      stroke: #fff;
+    }
+
+    /* Coming Soon Card */
+    .card.coming-soon {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .card.coming-soon:hover {
+      transform: none;
+      box-shadow: none;
+      border-color: var(--border);
+    }
+    .card.coming-soon .card-preview {
+      background: linear-gradient(135deg, #0f0f18 0%, #0a0a14 100%);
+    }
+    .card.coming-soon .card-preview .icon {
+      opacity: 0.3;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+      .hero { min-height: 80vh; }
+      .projects { padding: 2rem 1rem 4rem; }
+    }
   </style>
 </head>
 <body>
-  <div id="spinner-container"></div>
-  <div id="ui-root"></div>
-  <script type="module" src="/main.js"></script>
+
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Interactive 3D Experiences
+    </div>
+    <h1>3D Playground</h1>
+    <p>A collection of interactive 3D web experiments built with Three.js, WebGL, and modern web technologies.</p>
+    <div class="scroll-hint">
+      <span>Explore</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round">
+        <path d="M12 5v14M5 12l7 7 7-7"/>
+      </svg>
+    </div>
+  </section>
+
+  <section class="projects" id="projects">
+    <div class="section-header">
+      <h2>Projects</h2>
+      <p>Interactive demos you can play with right in your browser</p>
+    </div>
+
+    <div class="grid">
+      <!-- Fidget Spinner -->
+      <a href="/spinner/" class="card">
+        <div class="card-preview">
+          <span class="icon">🌀</span>
+        </div>
+        <div class="card-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 17L17 7M17 7H7M17 7V17"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-tag">Live Demo</span>
+          <h3>Fidget Spinner 3D</h3>
+          <p>Realistic physics-based spinner with 13 designs, singing bowl audio, drag-to-spin, and dark/light themes.</p>
+          <div class="card-tech">
+            <span>Three.js</span>
+            <span>Web Audio</span>
+            <span>SSAO</span>
+            <span>Vite</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Coming Soon -->
+      <div class="card coming-soon">
+        <div class="card-preview">
+          <span class="icon">🎨</span>
+        </div>
+        <div class="card-content">
+          <span class="card-tag">Coming Soon</span>
+          <h3>3D Paint</h3>
+          <p>Draw and sculpt in 3D space with real-time lighting and material preview.</p>
+          <div class="card-tech">
+            <span>Three.js</span>
+            <span>WebGL</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coming Soon -->
+      <div class="card coming-soon">
+        <div class="card-preview">
+          <span class="icon">🌍</span>
+        </div>
+        <div class="card-content">
+          <span class="card-tag">Coming Soon</span>
+          <h3>Globe Visualizer</h3>
+          <p>Interactive 3D globe with data visualization, animations, and custom markers.</p>
+          <div class="card-tech">
+            <span>Three.js</span>
+            <span>D3.js</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coming Soon -->
+      <div class="card coming-soon">
+        <div class="card-preview">
+          <span class="icon">🎵</span>
+        </div>
+        <div class="card-content">
+          <span class="card-tag">Coming Soon</span>
+          <h3>Audio Visualizer</h3>
+          <p>Real-time 3D audio visualization with frequency-reactive geometry and particles.</p>
+          <div class="card-tech">
+            <span>Three.js</span>
+            <span>Web Audio API</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coming Soon -->
+      <div class="card coming-soon">
+        <div class="card-preview">
+          <span class="icon">🏗️</span>
+        </div>
+        <div class="card-content">
+          <span class="card-tag">Coming Soon</span>
+          <h3>Physics Sandbox</h3>
+          <p>Drop, stack, and interact with 3D objects powered by real-time physics simulation.</p>
+          <div class="card-tech">
+            <span>Cannon.js</span>
+            <span>Three.js</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coming Soon -->
+      <div class="card coming-soon">
+        <div class="card-preview">
+          <span class="icon">✨</span>
+        </div>
+        <div class="card-content">
+          <span class="card-tag">Coming Soon</span>
+          <h3>Particle Galaxy</h3>
+          <p>GPU-accelerated particle systems with millions of points forming cosmic shapes.</p>
+          <div class="card-tech">
+            <span>WebGL</span>
+            <span>Shaders</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Built with Three.js & Vite · <a href="https://github.com/noobsworld/noobsworld.github.io" target="_blank">GitHub</a></p>
+  </footer>
+
 </body>
 </html>

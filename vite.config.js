@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
@@ -7,6 +8,12 @@ export default defineConfig({
         open: true
     },
     build: {
-        outDir: 'dist'
+        outDir: 'dist',
+        rollupOptions: {
+            input: {
+                main: resolve(__dirname, 'index.html'),
+                spinner: resolve(__dirname, 'spinner/index.html')
+            }
+        }
     }
 })
