@@ -267,15 +267,6 @@ renderer.toneMappingExposure = 1.5
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-// Mobile detection
-const isMobile = /Mobi|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent)
-
-// Reduce shadow quality on mobile for performance
-if (isMobile) {
-  dirLight.shadow.mapSize.set(1024, 1024)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
-}
-
 document.getElementById('spinner-container').appendChild(renderer.domElement)
 
 // ══════════════════════════════════════════
@@ -344,6 +335,13 @@ dirLight.shadow.camera.bottom = -8
 dirLight.shadow.bias = -0.0001  // Less bias for sharper shadows
 dirLight.shadow.radius = 1  // Softer shadow edges
 scene.add(dirLight)
+
+// Mobile detection - after dirLight is created
+const isMobile = /Mobi|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent)
+if (isMobile) {
+  dirLight.shadow.mapSize.set(1024, 1024)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+}
 
 const fillLight = new THREE.DirectionalLight(0xe0eeff, 0.5)
 fillLight.position.set(-6, 6, -5)
