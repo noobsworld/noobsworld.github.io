@@ -26,45 +26,14 @@ A realistic 3D fidget spinner simulator with 14 designs.
 
 ### Features
 
-- **14 popular spinner designs** — Classic, Tri, Bar, Torqbar, Hex, Kong, Infinity, Valkyrie, Ninja Star, Double Deck, Compass, Gear, Skull, Pokeball
-
----
-
-## Peptide Vial 3D
-
-A dark HUD-style glass vial with interactive liquid simulation.
-
-![Three.js](https://img.shields.io/badge/three.js-0.183-green) ![Vite](https://img.shields.io/badge/vite-8.0-blue)
-
-### Features
-
-- **Physically-based glass** — transmission, refraction, and caustic-style lighting
-- **Interactive liquid** — animated waves with orbital color transitions (cyan/pink/purple/gold)
-- **Drag to rotate** — quaternion-based, position-following, no gimbal lock
-- **Tap to stop** — quick tap halts all rotation, triggers ripple effect
-- **Auto-orbit camera** — activates after 2.5s of idle
-- **Singing bowl audio** — frequency-shifting ambient tones tied to rotation speed
-- **Peptide chain** — helical backbone with residue spheres and ribbon overlay
-- **HUD panel** — frosted glass UI with audio toggle and fill level slider
-- **Entrance animation** — bottle rises from below with glass fade-in
-- **Particle system** — 120 ambient floating particles with cyan glow
-
-### Controls
-
-| Input | Action |
-|-------|--------|
-| **Drag vial** | Position-based rotation (follows cursor/finger) |
-| **Tap** | Stop rotation + ripple effect |
-| **S / Escape** | Stop |
-| **Fill slider** | Adjust liquid level |
-- **Realistic physics** — combined linear + quadratic drag model, framerate-independent
-- **Drag to spin** — raycast-based interaction with flick velocity tracking
+- **14 designs** — Classic, Tri, Bar, Torqbar, Hex, Kong, Infinity, Valkyrie, Ninja Star, Double Deck, Compass, Gear, Skull, Pokeball
+- **Realistic physics** — combined linear + quadratic drag, framerate-independent
+- **Drag to spin** — raycast-based with flick velocity tracking
 - **Singing bowl audio** — per-type chords, wind ambience, random pentatonic chimes
 - **3D carousel selector** — drag-to-spin ring to browse types
 - **Dark / Light themes** — full scene reactivity (lighting, fog, ground, UI)
 - **Speed effects** — glow rings, particles, emissive pulse, bloom scaling
-- **SSAO** — screen-space ambient occlusion for depth-based shadows
-- **Contact shadows** — 4K shadow maps with optimized mobile quality
+- **SSAO + contact shadows** — depth-based ambient occlusion, 4K shadow maps
 - **Stats tracking** — RPM, spin timer, best spin, total spins (localStorage)
 - **Mobile support** — touch controls, flick-to-spin, responsive UI, adaptive quality
 
@@ -79,7 +48,39 @@ A dark HUD-style glass vial with interactive liquid simulation.
 | **Drag scene** | Orbit camera |
 | **Scroll** | Zoom |
 
-### Development
+---
+
+## Peptide Vial 3D
+
+A dark HUD-style glass vial with interactive liquid simulation.
+
+![Three.js](https://img.shields.io/badge/three.js-0.183-green) ![Vite](https://img.shields.io/badge/vite-8.0-blue)
+
+### Features
+
+- **Physically-based glass** — transmission, refraction, caustic-style lighting
+- **Interactive liquid** — animated waves with orbital color transitions (cyan/pink/purple/gold)
+- **Drag to rotate** — quaternion-based, position-following, no gimbal lock
+- **Tap to stop** — quick tap halts rotation, triggers ripple effect
+- **Auto-orbit camera** — activates after 2.5s idle
+- **Singing bowl audio** — frequency-shifting ambient tones tied to rotation speed
+- **Peptide chain** — helical backbone with residue spheres and ribbon overlay
+- **HUD panel** — frosted glass UI with audio toggle and fill slider
+- **Entrance animation** — bottle rises from below with glass fade-in
+- **Particle system** — 120 ambient floating cyan particles
+
+### Controls
+
+| Input | Action |
+|-------|--------|
+| **Drag vial** | Position-based rotation (follows cursor/finger) |
+| **Tap** | Stop rotation + ripple effect |
+| **S / Escape** | Stop |
+| **Fill slider** | Adjust liquid level |
+
+---
+
+## Development
 
 ```bash
 npm install
@@ -88,14 +89,14 @@ npm run build     # Production build → dist/
 npm run preview   # Preview production build
 ```
 
-### Tech Stack
+## Tech Stack
 
 - **Three.js** — 3D rendering, post-processing (bloom, SSAO)
 - **Vite** — multi-page dev server and build tool
 - **Web Audio API** — singing bowl synthesis
 - Vanilla JavaScript, no frameworks
 
-### Project Structure
+## Project Structure
 
 ```
 index.html              Homepage (project showcase)
