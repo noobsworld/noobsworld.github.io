@@ -7,19 +7,48 @@ import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 
 // ══════════════════════════════════════════
+// ── LOADING SCREEN ──
+// ══════════════════════════════════════════
+
+const loadingEl = document.createElement('div')
+loadingEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#44ffcc;margin-right:8px;vertical-align:middle;animation:pulse 1s infinite alternate;"></span>loading'
+Object.assign(loadingEl.style, {
+  position: 'fixed', inset: '0', zIndex: '9999',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  background: '#06080a',
+  color: 'rgba(255,255,255,0.2)',
+  fontFamily: 'system-ui,sans-serif',
+  fontSize: '11px',
+  letterSpacing: '0.3em',
+  textTransform: 'uppercase',
+  transition: 'opacity 0.8s',
+})
+const styleSheet = document.createElement('style')
+styleSheet.textContent = `
+@view-transition { navigation: auto; }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 0.4s; }
+@keyframes pulse { from { opacity:0.3; } to { opacity:1; } }
+#spinner-loading.fade { opacity:0; pointer-events:none; }
+`
+loadingEl.id = 'spinner-loading'
+document.head.appendChild(styleSheet)
+document.body.appendChild(loadingEl)
+
+// ══════════════════════════════════════════
 // ── THEME CONFIGS ──
 // ══════════════════════════════════════════
 
 const THEMES = {
   light: {
     sceneBg: 0xfff8e8, sceneFog: 0xffe8d0,
-    ambientColor: 0xffffff, ambientIntensity: 0.7,  // Increased for better HDRI integration
-    dirColor: 0xfff5e8, dirIntensity: 2.2,        // Increased directional light
-    fillColor: 0xe0eeff, fillIntensity: 0.7,      // Increased fill light
-    rimColor: 0xffe8d0, rimIntensity: 0.6,        // Increased rim light for edge definition
-    bottomColor: 0xd0e0ff, bottomIntensity: 0.4,  // Increased bottom light
-    hemiSky: 0xb0d0f0, hemiGround: 0xf0e0d0, hemiIntensity: 0.7, // Increased hemisphere light
-    groundColor: 0xe8e0d8, gridColor1: 0xd8dce8, gridColor2: 0xe4e8f0, gridOpacity: 0.25,
+    ambientColor: 0xffffff, ambientIntensity: 0.5,
+    dirColor: 0xfff5e8, dirIntensity: 1.4,
+    fillColor: 0xe0eeff, fillIntensity: 0.5,
+    rimColor: 0xffe8d0, rimIntensity: 0.4,
+    bottomColor: 0xd0e0ff, bottomIntensity: 0.25,
+    hemiSky: 0xb0d0f0, hemiGround: 0xf0e0d0, hemiIntensity: 0.5,
+    groundColor: 0xe8e0d8,
     skyTop: '#e8d8c0', skyMid: '#f0e0d0', skyBot: '#fff8e8',
     panelBg: 'rgba(255,255,255,0.65)', panelBorder: 'rgba(255,255,255,0.5)',
     panelShadow: '0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.6)',
@@ -33,25 +62,25 @@ const THEMES = {
     particleColor: 0xa8c0d8, speedLineColor: 0x8ab0d0
   },
   dark: {
-    sceneBg: 0x0a0a14, sceneFog: 0x0a0a14,
-    ambientColor: 0x334466, ambientIntensity: 0.4,
-    dirColor: 0xffeedd, dirIntensity: 1.2,
-    fillColor: 0x4466aa, fillIntensity: 0.3,
-    rimColor: 0xffcc88, rimIntensity: 0.25,
-    bottomColor: 0x223344, bottomIntensity: 0.15,
-    hemiSky: 0x223355, hemiGround: 0x111118, hemiIntensity: 0.3,
-    groundColor: 0x12121a, gridColor1: 0x1a1a28, gridColor2: 0x141420, gridOpacity: 0.15,
-    skyTop: '#080810', skyMid: '#0c0c18', skyBot: '#0a0a14',
-    panelBg: 'rgba(20,20,35,0.75)', panelBorder: 'rgba(255,255,255,0.08)',
-    panelShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
-    textPrimary: '#c8d0e0', textSecondary: '#667788', textMuted: '#556',
-    btnBg: 'rgba(255,255,255,0.06)', btnBorder: 'rgba(255,255,255,0.1)',
-    btnHover: 'rgba(255,255,255,0.12)', btnText: '#c0c8d8',
-    hintColor: 'rgba(255,255,255,0.12)', dividerColor: 'rgba(255,255,255,0.06)',
-    wheelItemBg: 'rgba(255,255,255,0.05)',
-    wheelItemActiveBg: 'rgba(255,255,255,0.12)', wheelItemBorder: 'rgba(255,255,255,0.08)',
-    wheelItemActiveBorder: 'rgba(100,160,220,0.4)',
-    particleColor: 0x4466aa, speedLineColor: 0x334488
+    sceneBg: 0x080a0c, sceneFog: 0x080a0c,
+    ambientColor: 0x1a2a3a, ambientIntensity: 0.2,
+    dirColor: 0xdde4ee, dirIntensity: 0.7,
+    fillColor: 0x2a4d5a, fillIntensity: 0.18,
+    rimColor: 0x5a9988, rimIntensity: 0.22,
+    bottomColor: 0x1a2a3a, bottomIntensity: 0.1,
+    hemiSky: 0x2a4455, hemiGround: 0x080a0c, hemiIntensity: 0.18,
+    groundColor: 0x12181a,
+    skyTop: '#06080a', skyMid: '#080a0c', skyBot: '#06080a',
+    panelBg: 'rgba(8,10,14,0.78)', panelBorder: 'rgba(255,255,255,0.04)',
+    panelShadow: '0 8px 32px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.02)',
+    textPrimary: '#d0d8e0', textSecondary: '#788898', textMuted: '#3a4450',
+    btnBg: 'rgba(255,255,255,0.03)', btnBorder: 'rgba(255,255,255,0.06)',
+    btnHover: 'rgba(255,255,255,0.07)', btnText: '#b0c0d0',
+    hintColor: 'rgba(255,255,255,0.06)', dividerColor: 'rgba(255,255,255,0.03)',
+    wheelItemBg: 'rgba(255,255,255,0.03)',
+    wheelItemActiveBg: 'rgba(255,255,255,0.07)', wheelItemBorder: 'rgba(255,255,255,0.04)',
+    wheelItemActiveBorder: 'rgba(255,255,255,0.12)',
+    particleColor: 0x2a4a5a, speedLineColor: 0x1a3a4a
   }
 }
 
@@ -69,7 +98,7 @@ const SPINNER_TYPES = [
     balls: { color: 0x90b8d8, metalness: 1.0, roughness: 0.04 },
     cap: { color: 0xe0ecf8, metalness: 0.95, roughness: 0.08 },
     accent: { color: 0x3088cc, metalness: 0.9, roughness: 0.12 },
-    arms: 3, floor: { light: 0xe4eaf0, dark: 0x141828 },
+    arms: 3,     floor: { light: 0xe4eaf0, dark: 0x0e1214 },
     chord: [146.83, 220.00, 293.66, 349.23]
   },
   {
@@ -79,7 +108,7 @@ const SPINNER_TYPES = [
     balls: { color: 0xa0a8b0, metalness: 1.0, roughness: 0.04 },
     cap: { color: 0xe8e8f0, metalness: 0.98, roughness: 0.06 },
     accent: { color: 0x8888a0, metalness: 0.95, roughness: 0.1 },
-    arms: 3, floor: { light: 0xe0e2e8, dark: 0x121218 },
+    arms: 3,     floor: { light: 0xe0e2e8, dark: 0x0e1214 },
     chord: [155.56, 233.08, 311.13, 369.99]
   },
   {
@@ -89,7 +118,7 @@ const SPINNER_TYPES = [
     balls: { color: 0xb87333, metalness: 0.9, roughness: 0.12 },
     cap: { color: 0xb87333, metalness: 0.85, roughness: 0.15 },
     accent: { color: 0xb87333, metalness: 0.88, roughness: 0.12 },
-    arms: 2, floor: { light: 0xd8d8dc, dark: 0x101014 },
+    arms: 2,     floor: { light: 0xd8d8dc, dark: 0x0e1214 },
     chord: [116.54, 174.61, 233.08, 277.18]
   },
   {
@@ -99,7 +128,7 @@ const SPINNER_TYPES = [
     balls: { color: 0xc8a080, metalness: 0.85, roughness: 0.12 },
     cap: { color: 0xc8a080, metalness: 0.8, roughness: 0.18 },
     accent: { color: 0xb89070, metalness: 0.82, roughness: 0.15 },
-    arms: 2, floor: { light: 0xdcd8d4, dark: 0x12100e },
+    arms: 2, floor: { light: 0xdcd8d4, dark: 0x0e1214 },
     chord: [130.81, 196.00, 261.63, 311.13]
   },
   {
@@ -109,7 +138,7 @@ const SPINNER_TYPES = [
     balls: { color: 0x50d890, metalness: 0.9, roughness: 0.08 },
     cap: { color: 0xf0c840, metalness: 0.75, roughness: 0.15 },
     accent: { color: 0xf0c840, metalness: 0.78, roughness: 0.12 },
-    arms: 6, floor: { light: 0xd8ece2, dark: 0x0e1a14 },
+    arms: 6, floor: { light: 0xd8ece2, dark: 0x0e1214 },
     chord: [174.61, 261.63, 349.23, 415.30]
   },
   {
@@ -119,7 +148,7 @@ const SPINNER_TYPES = [
     balls: { color: 0xdd6666, metalness: 0.92, roughness: 0.08 },
     cap: { color: 0xff8888, metalness: 0.8, roughness: 0.12 },
     accent: { color: 0xffaa44, metalness: 0.82, roughness: 0.1 },
-    arms: 0, floor: { light: 0xeee0dc, dark: 0x180e0c },
+    arms: 0, floor: { light: 0xeee0dc, dark: 0x0e1214 },
     chord: [123.47, 185.00, 246.94, 293.66]
   },
   {
@@ -129,7 +158,7 @@ const SPINNER_TYPES = [
     balls: { color: 0x9898b0, metalness: 0.95, roughness: 0.06 },
     cap: { color: 0xc0c0d8, metalness: 0.9, roughness: 0.08 },
     accent: { color: 0x7088cc, metalness: 0.88, roughness: 0.1 },
-    arms: 0, floor: { light: 0xe0e0e8, dark: 0x101018 },
+    arms: 0, floor: { light: 0xe0e0e8, dark: 0x0e1214 },
     chord: [110.00, 164.81, 220.00, 261.63]
   },
   {
@@ -139,7 +168,7 @@ const SPINNER_TYPES = [
     balls: { color: 0x4080c0, metalness: 0.85, roughness: 0.12 },
     cap: { color: 0x4080c0, metalness: 0.8, roughness: 0.15 },
     accent: { color: 0x3060a0, metalness: 0.75, roughness: 0.18 },
-    arms: 3, floor: { light: 0xd4d8e0, dark: 0x0c0c14 },
+    arms: 3, floor: { light: 0xd4d8e0, dark: 0x0e1214 },
     chord: [138.59, 207.65, 277.18, 329.63]
   },
   {
@@ -149,7 +178,7 @@ const SPINNER_TYPES = [
     balls: { color: 0x808090, metalness: 0.95, roughness: 0.06 },
     cap: { color: 0xa0a0b0, metalness: 0.9, roughness: 0.1 },
     accent: { color: 0xcc4444, metalness: 0.85, roughness: 0.12 },
-    arms: 4, floor: { light: 0xd8d8e0, dark: 0x101018 },
+    arms: 4, floor: { light: 0xd8d8e0, dark: 0x0e1214 },
     chord: [155.56, 233.08, 311.13, 369.99]
   },
   {
@@ -159,7 +188,7 @@ const SPINNER_TYPES = [
     balls: { color: 0x9977bb, metalness: 0.88, roughness: 0.1 },
     cap: { color: 0xddaa44, metalness: 0.78, roughness: 0.15 },
     accent: { color: 0xddaa44, metalness: 0.8, roughness: 0.12 },
-    arms: 3, floor: { light: 0xe0dce8, dark: 0x120e18 },
+    arms: 3, floor: { light: 0xe0dce8, dark: 0x0e1214 },
     chord: [146.83, 220.00, 293.66, 349.23]
   },
   {
@@ -169,7 +198,7 @@ const SPINNER_TYPES = [
     balls: { color: 0xd0b880, metalness: 0.92, roughness: 0.08 },
     cap: { color: 0xe8d8a0, metalness: 0.85, roughness: 0.1 },
     accent: { color: 0xcc3333, metalness: 0.82, roughness: 0.15 },
-    arms: 4, floor: { light: 0xe8e4d8, dark: 0x14120e },
+    arms: 4, floor: { light: 0xe8e4d8, dark: 0x0e1214 },
     chord: [130.81, 196.00, 261.63, 311.13]
   },
   {
@@ -179,7 +208,7 @@ const SPINNER_TYPES = [
     balls: { color: 0x909098, metalness: 0.98, roughness: 0.04 },
     cap: { color: 0xb0b0b8, metalness: 0.95, roughness: 0.08 },
     accent: { color: 0xe0a030, metalness: 0.85, roughness: 0.12 },
-    arms: 0, floor: { light: 0xdcdcdc, dark: 0x101014 },
+    arms: 0, floor: { light: 0xdcdcdc, dark: 0x0e1214 },
     chord: [116.54, 174.61, 233.08, 277.18]
   },
   {
@@ -189,7 +218,7 @@ const SPINNER_TYPES = [
     balls: { color: 0xaaaaaa, metalness: 0.8, roughness: 0.15 },
     cap: { color: 0xe0e0e0, metalness: 0.5, roughness: 0.35 },
     accent: { color: 0x222222, metalness: 0.4, roughness: 0.6 },
-    arms: 3, floor: { light: 0xd8d8dc, dark: 0x0e0e12 },
+    arms: 3, floor: { light: 0xd8d8dc, dark: 0x0e1214 },
     chord: [123.47, 185.00, 246.94, 293.66]
   },
   {
@@ -199,7 +228,7 @@ const SPINNER_TYPES = [
     balls: { color: 0xeeeeee, metalness: 0.5, roughness: 0.2 },
     cap: { color: 0xffffff, metalness: 0.6, roughness: 0.15 },
     accent: { color: 0x111111, metalness: 0.3, roughness: 0.6 },
-    arms: 3, floor: { light: 0xf0e8e8, dark: 0x140e0e },
+    arms: 3, floor: { light: 0xf0e8e8, dark: 0x0e1214 },
     chord: [130.81, 196.00, 261.63, 311.13]
   }
 ]
@@ -213,6 +242,7 @@ const DRAG_QUAD = 0.004
 const STOP_THRESHOLD = 0.08
 const SPACE_BOOST = 25
 const MAX_SPEED = 150
+const IDLE_SPEED = 2.5
 const TORQUE_SCALE = 25
 const WOBBLE = 0.025
 
@@ -224,7 +254,7 @@ let currentTypeIdx = 0
 let angularVelocity = 0
 let totalRotation = 0
 let isDraggingSpinner = false
-let soundEnabled = false
+let soundEnabled = true
 let currentRPM = 0
 let spinStartTime = 0
 let spinTimerActive = false
@@ -273,14 +303,12 @@ document.getElementById('spinner-container').appendChild(renderer.domElement)
 // ── ENVIRONMENT MAP (HDRI-like reflections) ──
 // ══════════════════════════════════════════
 
-// Environment setup with theme-based intensity for better visibility
+// Environment setup
 const pmremGenerator = new THREE.PMREMGenerator(renderer)
 pmremGenerator.compileEquirectangularShader()
-// Use different environment intensity for light vs dark themes
-const envIntensity = isDarkTheme ? 0.06 : 0.12  // Higher intensity in light mode
-const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), envIntensity).texture
+const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.08).texture
 scene.environment = envTexture
-// Note: toneMappingExposure will be set in applyTheme()
+scene.environmentIntensity = 0.5
 
 // ══════════════════════════════════════════
 // ── POST-PROCESSING ──
@@ -384,7 +412,23 @@ const skyMesh = new THREE.Mesh(
 )
 scene.add(skyMesh)
 
-const groundMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f4, roughness: 0.95, metalness: 0 })
+// Radial gradient background for dark mode (like vial)
+const darkBgCanvas = document.createElement('canvas')
+darkBgCanvas.width = 512; darkBgCanvas.height = 512
+const darkBgCtx = darkBgCanvas.getContext('2d')
+function updateDarkBg() {
+  const g = darkBgCtx.createRadialGradient(256, 220, 40, 256, 256, 400)
+  g.addColorStop(0, '#0d1518')
+  g.addColorStop(0.35, '#070b0e')
+  g.addColorStop(1, '#030406')
+  darkBgCtx.fillStyle = g
+  darkBgCtx.fillRect(0, 0, 512, 512)
+  darkBgTex.needsUpdate = true
+}
+const darkBgTex = new THREE.CanvasTexture(darkBgCanvas)
+updateDarkBg()
+
+const groundMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f4, roughness: 0.5, metalness: 0.3 })
 const ground = new THREE.Mesh(new THREE.CircleGeometry(25, 64), groundMat)
 ground.rotation.x = -Math.PI / 2
 ground.position.y = -0.55
@@ -400,26 +444,16 @@ shadowPlane.position.y = -0.54
 shadowPlane.receiveShadow = true
 scene.add(shadowPlane)
 
-const grid = new THREE.GridHelper(16, 16, 0xd8dce8, 0xe4e8f0)
-grid.position.y = -0.53
-grid.material.opacity = 0.25
-grid.material.transparent = true
-scene.add(grid)
-
 function applyTheme(themeName) {
    const t = THEMES[themeName]
    isDarkTheme = themeName === 'dark'
 
-   scene.background.setHex(t.sceneBg)
+   scene.background = isDarkTheme ? darkBgTex : null
    scene.fog.color.setHex(t.sceneFog)
+   scene.environment = isDarkTheme ? envTexture : null
+   scene.environmentIntensity = isDarkTheme ? 0.25 : 0.5
 
-   if (isDarkTheme) {
-     renderer.toneMappingExposure = 1.0
-     scene.environment = envTexture
-   } else {
-     renderer.toneMappingExposure = 1.0
-     scene.environment = null
-   }
+   renderer.toneMappingExposure = 1.0
    
    scene.traverse(obj => {
      if (obj.isMesh && obj.material) {
@@ -442,15 +476,14 @@ function applyTheme(themeName) {
    hemiLight.groundColor.setHex(t.hemiGround)
    hemiLight.intensity = t.hemiIntensity
 
-   ground.material.color.setHex(t.groundColor)
-   grid.material.color.setHex(t.gridColor1)
-   grid.material.opacity = t.gridOpacity
-
    updateSkyTexture(t.skyTop, t.skyMid, t.skyBot)
+   skyMesh.visible = !isDarkTheme
 
    // Update floor from current spinner type
    const type = SPINNER_TYPES[currentTypeIdx]
    ground.material.color.setHex(isDarkTheme ? type.floor.dark : type.floor.light)
+   ground.material.roughness = isDarkTheme ? 0.55 : 0.5
+   ground.material.metalness = isDarkTheme ? 0.25 : 0.3
 
    // Update particles and speed lines
    pMat.color.setHex(t.particleColor)
@@ -1262,11 +1295,11 @@ scene.add(new THREE.Points(pGeo, pMat))
 function initAudio() {
   if (audioCtx) return
   audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-  masterGain = audioCtx.createGain(); masterGain.gain.value = 0; masterGain.connect(audioCtx.destination)
+  masterGain = audioCtx.createGain(); masterGain.gain.value = 0.06; masterGain.connect(audioCtx.destination)
   bowlOscs = []; bowlGains = []
   for (let i = 0; i < 4; i++) {
     const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.value = SPINNER_TYPES[currentTypeIdx].chord[i]
-    const gain = audioCtx.createGain(); gain.gain.value = 0
+    const gain = audioCtx.createGain(); gain.gain.value = 0.15
     osc.connect(gain); gain.connect(masterGain); osc.start()
     bowlOscs.push(osc); bowlGains.push(gain)
   }
@@ -1274,7 +1307,7 @@ function initAudio() {
   const out = buf.getChannelData(0); for (let i = 0; i < out.length; i++) out[i] = Math.random() * 2 - 1
   windNode = audioCtx.createBufferSource(); windNode.buffer = buf; windNode.loop = true
   windFilter = audioCtx.createBiquadFilter(); windFilter.type = 'bandpass'; windFilter.frequency.value = 600; windFilter.Q.value = 0.3
-  windGain = audioCtx.createGain(); windGain.gain.value = 0
+  windGain = audioCtx.createGain(); windGain.gain.value = 0.03
   windNode.connect(windFilter); windFilter.connect(windGain); windGain.connect(masterGain); windNode.start()
 }
 
@@ -1286,11 +1319,17 @@ function updateChordFrequencies() {
 
 function updateAudio(speed) {
   if (!audioCtx || !soundEnabled) return
-  const t = audioCtx.currentTime, n = Math.abs(speed) / MAX_SPEED
-  masterGain.gain.setTargetAtTime(n * 0.18, t, 0.1)
-    ;[0.5, 0.25, 0.15, 0.08].forEach((v, i) => bowlGains[i].gain.setTargetAtTime(v, t, 0.15))
-  windGain.gain.setTargetAtTime(n * 0.06, t, 0.1)
-  windFilter.frequency.setTargetAtTime(400 + n * 800, t, 0.1)
+  const n = Math.abs(speed) / MAX_SPEED
+  const minN = Math.max(n, 0.15)
+  const targetGain = minN * 0.45
+
+  // Direct gain — no scheduling issues, smooths in JS
+  masterGain.gain.value += (targetGain - masterGain.gain.value) * 0.3
+  ;[0.5, 0.25, 0.15, 0.08].forEach((v, i) => {
+    bowlGains[i].gain.value += (v - bowlGains[i].gain.value) * 0.2
+  })
+  windGain.gain.value += (n * 0.06 - windGain.gain.value) * 0.3
+  windFilter.frequency.value = 400 + n * 800
   const now = performance.now()
   if (n > 0.15 && now - lastChimeTime > 2000 + Math.random() * 3000) { lastChimeTime = now; triggerChime(n) }
 }
@@ -1327,6 +1366,14 @@ function onPointerDown(event) {
   // Only respond to left button (pointerType !== 'mouse' or button === 0)
   if (event.target.tagName !== 'CANVAS') return
   if (event.button && event.button !== 0) return
+
+  // Auto-init audio on first canvas interaction (guaranteed user gesture)
+  if (!audioCtx) {
+    initAudio()
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume()
+    updateChordFrequencies()
+    updateAudio(angularVelocity)
+  }
 
   pointerHistory = []
   pointerHistory.push({ x: event.clientX, y: event.clientY, time: performance.now() })
@@ -1424,6 +1471,8 @@ function onKeyDown(e) {
   switch (e.code) {
     case 'Space':
       e.preventDefault()
+      // Init audio on keyboard interaction too
+      if (!audioCtx) { initAudio(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); updateChordFrequencies(); updateAudio(angularVelocity) }
       if (Math.abs(angularVelocity) < 0.5) angularVelocity = SPACE_BOOST * (Math.random() > 0.5 ? 1 : -1)
       else angularVelocity += SPACE_BOOST * (angularVelocity >= 0 ? 1 : -1)
       angularVelocity = THREE.MathUtils.clamp(angularVelocity, -MAX_SPEED, MAX_SPEED)
@@ -1611,7 +1660,8 @@ function createUI() {
    })
   action.appendChild(themeBtn)
 
-  soundBtn = document.createElement('button'); soundBtn.className = 'hud-btn-sm'; soundBtn.textContent = '\u{1F3B6} Sound Off'
+  soundBtn = document.createElement('button'); soundBtn.className = 'hud-btn-sm'; soundBtn.textContent = '\u{1F3B6} Sound On'
+  soundBtn.classList.add('hud-btn-active')
   soundBtn.addEventListener('click', toggleSound)
   action.appendChild(soundBtn)
 
@@ -1781,6 +1831,71 @@ function updateUI() {
 }
 
 // ══════════════════════════════════════════
+// ── ENTRANCE STATE ──
+// ══════════════════════════════════════════
+
+const entrance = { startTime: -1, duration: 1.4 }
+spinnerGroup.scale.setScalar(0.7)
+spinnerGroup.position.y = -0.3
+
+// ══════════════════════════════════════════
+// ── GROUND GLOW RING ──
+// ══════════════════════════════════════════
+
+const glowRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.8, 1.8, 64),
+  new THREE.MeshBasicMaterial({
+    color: 0x4488cc, transparent: true, opacity: 0.06,
+    side: THREE.DoubleSide, depthWrite: false,
+  })
+)
+glowRing.rotation.x = -Math.PI / 2
+glowRing.position.y = -0.52
+scene.add(glowRing)
+
+const glowInner = new THREE.Mesh(
+  new THREE.CircleGeometry(0.6, 32),
+  new THREE.MeshBasicMaterial({
+    color: 0x4488cc, transparent: true, opacity: 0.03,
+    side: THREE.DoubleSide, depthWrite: false,
+  })
+)
+glowInner.rotation.x = -Math.PI / 2
+glowInner.position.y = -0.51
+scene.add(glowInner)
+
+// ══════════════════════════════════════════
+// ── TECH BADGE ──
+// ══════════════════════════════════════════
+
+const badge = document.createElement('div')
+badge.textContent = 'Three.js · Custom Shader · Web Audio API'
+Object.assign(badge.style, {
+  position: 'fixed', bottom: '36px', left: '36px', zIndex: '100',
+  fontFamily: 'system-ui,sans-serif', fontSize: '9px',
+  letterSpacing: '0.08em', color: 'rgba(255,255,255,0.12)',
+  opacity: '0', transition: 'opacity 0.6s ease',
+})
+document.body.appendChild(badge)
+requestAnimationFrame(() => { badge.style.opacity = '1' })
+
+// ══════════════════════════════════════════
+// ── CAMERA IDLE AUTO-ORBIT ──
+// ══════════════════════════════════════════
+
+let sceneIdleTime = 0
+const IDLE_ORBIT_DELAY = 3
+controls.autoRotateSpeed = 2.0
+renderer.domElement.addEventListener('pointerdown', () => {
+  controls.autoRotate = false
+  sceneIdleTime = 0
+})
+document.addEventListener('keydown', () => {
+  controls.autoRotate = false
+  sceneIdleTime = 0
+})
+
+// ══════════════════════════════════════════
 // ── ANIMATION ──
 // ══════════════════════════════════════════
 
@@ -1791,9 +1906,25 @@ function animate(now) {
   const dt = Math.min((now - lastFrameTime) / 1000, 0.05)
   lastFrameTime = now
 
-  if (Math.abs(angularVelocity) > STOP_THRESHOLD) {
+  // ── Entrance animation ──
+  if (entrance.startTime < 0) entrance.startTime = now
+  const eT = Math.min((now - entrance.startTime) / (entrance.duration * 1000), 1)
+  const eEase = 1 - Math.pow(1 - eT, 3)
+  spinnerGroup.scale.setScalar(0.7 + 0.3 * eEase)
+  spinnerGroup.position.y = -0.3 + 0.3 * eEase
+
+  // Fade loading screen early so it overlaps with entrance
+  if (eT >= 0.4 && !loadingEl.classList.contains('fade')) {
+    loadingEl.classList.add('fade')
+    setTimeout(() => { loadingEl.style.display = 'none' }, 800)
+  }
+
+  // ── Idle slow rotation ──
+  if (!isDraggingSpinner && Math.abs(angularVelocity) <= IDLE_SPEED * 1.1) {
+    angularVelocity = IDLE_SPEED * (angularVelocity >= 0 ? 1 : -1)
+  } else {
     angularVelocity -= (DRAG_LINEAR * angularVelocity + DRAG_QUAD * angularVelocity * Math.abs(angularVelocity)) * dt
-  } else angularVelocity = 0
+  }
 
   totalRotation += angularVelocity * dt
   spinnerGroup.rotation.y = totalRotation
@@ -1833,10 +1964,24 @@ function animate(now) {
   pMat.opacity = speedNorm * 0.2
 
   bloomPass.strength = 0.18 + speedNorm * 0.25
+
+  // ── Camera idle auto-orbit ──
+  if (isDraggingSpinner) {
+    controls.autoRotate = false
+  }
+  sceneIdleTime += dt
+  if (sceneIdleTime > IDLE_ORBIT_DELAY && !controls.autoRotate && controls.enabled) {
+    controls.autoRotate = true
+  }
+
+  // ── Ground glow pulse ──
+  const gp = Math.sin(now * 0.0005) * 0.3 + 0.7
+  glowRing.material.opacity = 0.06 * gp
+  glowInner.material.opacity = 0.03 * gp
+
   camera.position.y += Math.sin(now * 0.0005) * 0.002
 
-  audioUpdateTimer += dt
-  if (audioUpdateTimer > 0.06) { audioUpdateTimer = 0; updateAudio(angularVelocity) }
+  updateAudio(angularVelocity)
 
   updateUI(); controls.update(); composer.render()
 }

@@ -20,6 +20,7 @@
       --accent: #4a9eff;
       --accent-glow: rgba(74,158,255,0.15);
     }
+    @view-transition { navigation: auto; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
@@ -46,7 +47,9 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse at 50% 30%, rgba(74,158,255,0.08) 0%, transparent 60%);
+      background:
+        radial-gradient(ellipse at 50% 30%, rgba(74,158,255,0.08) 0%, transparent 60%),
+        linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.15) 60%, transparent 100%);
       pointer-events: none;
     }
     .hero-badge {
@@ -79,17 +82,19 @@
       letter-spacing: -2px;
       line-height: 1.1;
       margin-bottom: 1.5rem;
-      background: linear-gradient(135deg, #fff 0%, #8899aa 100%);
+      background: linear-gradient(135deg, #fff 0%, #b0c0d0 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      filter: drop-shadow(0 2px 30px rgba(0,0,0,0.6));
     }
     .hero p {
       font-size: clamp(1rem, 2.5vw, 1.25rem);
-      color: var(--text-secondary);
+      color: #c8d8e8;
       max-width: 600px;
       line-height: 1.6;
       margin-bottom: 2.5rem;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.5);
     }
     .scroll-hint {
       position: absolute;
@@ -321,7 +326,7 @@
         <div class="card-content">
           <span class="card-tag">Live Demo</span>
           <h3>Fidget Spinner 3D</h3>
-          <p>Realistic physics-based spinner with 13 designs, singing bowl audio, drag-to-spin, and dark/light themes.</p>
+          <p>Realistic physics-based spinner with 14 designs, singing bowl audio, drag-to-spin, and dark/light themes.</p>
           <div class="card-tech">
             <span>Three.js</span>
             <span>Web Audio</span>
@@ -439,5 +444,6 @@
     <p>Built with Three.js & Vite · <a href="https://github.com/noobsworld/noobsworld.github.io" target="_blank">GitHub</a></p>
   </footer>
 
+  <script type="module" src="/homepage/main.js"></script>
 </body>
 </html>
